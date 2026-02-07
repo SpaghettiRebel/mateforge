@@ -1,7 +1,4 @@
-# Python
 __pycache__/
-*.py[cod]
-*$py.class
 *.so
 .Python
 myenv/
@@ -9,26 +6,8 @@ venv/
 ENV/
 env/
 
-# Environment variables
 .env
 .env.local
 
-# IDEs
 .vscode/
 .idea/
-*.swp
-*.swo
-
-# Poetry
-poetry.lock
-
-# Database
-*.db
-*.sqlite3
-
-# Docker
-docker-compose.override.yml
-
-# OS
-.DS_Store
-Thumbs.db
