@@ -10,11 +10,15 @@ from auth_service.src.infrastructure.database import get_async_session
 from auth_service.src.infrastructure.redis import get_redis_client
 from auth_service.src.infrastructure.repositories.user_repository import UserRepository
 from auth_service.src.infrastructure.repositories.token_repository import TokenRepository
+from auth_service.src.infrastructure.repositories.rate_limiter import RateLimiter
 from auth_service.src.application.user_service import UserService
 from auth_service.src.application.login_service import AuthService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 
+
+async def get_rate_limiter(redis: Redis = Depends(get_redis_client)) -> RateLimiter:
+    return RateLimiter(redis)
 
 def get_user_repository(session: AsyncSession = Depends(get_async_session)) -> UserRepository:
     return UserRepository(session)
@@ -28,12 +32,13 @@ def get_service(service_type: str):
 
     async def service_dependency(
             user_repository: UserRepository = Depends(get_user_repository),
-            token_repository: TokenRepository = Depends(get_token_repository)
+            token_repository: TokenRepository = Depends(get_token_repository),
+            rate_limiter: RateLimiter = Depends(get_rate_limiter)
     ):
         if service_type == 'user':
             return UserService(user_repository, token_repository)
         elif service_type == 'auth':
-            return AuthService(user_repository, token_repository)
+            return AuthService(user_repository, token_repository, rate_limiter)
         else:
             raise ValueError(f"Unknown service type: {service_type}")
 

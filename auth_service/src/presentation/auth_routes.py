@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, BackgroundTasks, Header, Body
 from fastapi.security import OAuth2PasswordRequestForm
-from auth_service.src.presentation.schemas import UserCreate, UserRead, Token
+from auth_service.src.presentation.schemas import UserCreate, UserRead, Token, UserData
 from auth_service.src.application.login_service import AuthService
-from auth_service.src.presentation.dependencies import get_service
+from auth_service.src.presentation.dependencies import get_service, get_current_user
 
 router = APIRouter()
 
@@ -45,11 +45,18 @@ async def verify(
 ):
     return await auth_service.verify_user(token)
 
-'''
+
 @router.delete("/logout")
 async def logout(
-    refresh_token: str, 
+    refresh_token: str,
+    current_user: UserData = Depends(get_current_user),
     auth_service: AuthService = Depends(get_service('auth'))
 ):
-    return await auth_service.logout(refresh_token)
-'''
+    return await auth_service.logout(refresh_token, current_user.id)
+
+@router.delete("/logout-all")
+async def logout_all(
+    current_user: UserData = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_service('auth'))
+):
+    return await auth_service.logout_all_sessions(current_user.id)

@@ -19,12 +19,16 @@ class UserService:
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                 detail="User not found")
+
         if access_type == 'private':
             return UserData.model_validate(user)
+
         return UserRead.model_validate(user)
 
     async def delete_user(self, user_id: UUID) -> dict:
+        await self.token_repository.delete_all_user_tokens(str(user_id))
         await self.user_repository.delete(user_id)
+
         return {"msg": "Account deleted"}
 
     async def edit_user(self, user_id: UUID, bio: str) -> UserData:
