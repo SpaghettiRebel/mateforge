@@ -11,7 +11,7 @@ from auth_service.src.infrastructure.redis import get_redis_client
 from auth_service.src.infrastructure.repositories.user_repository import UserRepository
 from auth_service.src.infrastructure.repositories.token_repository import TokenRepository
 from auth_service.src.infrastructure.repositories.rate_limiter import RateLimiter
-from auth_service.src.application.user_service import UserService
+from auth_service.src.application.user_service import UserService, AccessType
 from auth_service.src.application.login_service import AuthService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
@@ -70,6 +70,6 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user = await user_service.get_user(user_id, access_type='private')
+    user = await user_service.get_user(user_id, access_type=AccessType.PRIVATE)
 
     return UserData.model_validate(user)

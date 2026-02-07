@@ -1,3 +1,4 @@
+from typing import List
 from fastapi import APIRouter, Depends, Body
 from uuid import UUID
 
@@ -9,7 +10,7 @@ router = APIRouter()
 
 
 @router.get("/me", response_model=UserData)
-async def read_users_me(current_user: UserRead = Depends(get_current_user)):
+async def read_users_me(current_user: UserData = Depends(get_current_user)):
     return current_user
 
 
@@ -36,3 +37,29 @@ async def get_user(
         user_service: UserService = Depends(get_service('user'))
 ):
     return await user_service.get_user(user_id)
+
+@router.post("/{user_id}/follow")
+async def follow_user(
+        user_id: UUID,
+        current_user: UserData = Depends(get_current_user),
+        user_service: UserService = Depends(get_service('user'))
+):
+    return await user_service.follow_user(user_id=user_id, follower_id=current_user.id)
+
+@router.get("/{user_id}/followers", response_model=List[UserRead])
+async def get_user_followers(
+    user_id: UUID,
+    page: int = 1,
+    limit: int = 20,
+    user_service: UserService = Depends(get_service('user'))
+):
+    return await user_service.get_followers(user_id, page, limit)
+
+@router.get("/{user_id}/following", response_model=List[UserRead])
+async def get_user_following(
+    user_id: UUID,
+    page: int = 1,
+    limit: int = 20,
+    user_service: UserService = Depends(get_service('user'))
+):
+    return await user_service.get_following(user_id, page, limit)

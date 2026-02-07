@@ -1,4 +1,5 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from typing import List
+from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 from datetime import datetime
 import re
 from uuid import UUID
@@ -34,16 +35,13 @@ class UserRead(BaseModel):
     id: UUID
     username: str
     bio: str | None = None
+    followers_count: int
+    following_count: int
 
-    class Config:
-        from_attributes = True
-
+    model_config = ConfigDict(from_attributes=True)
 
 class UserData(UserRead, UserAuthBase):
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class Token(BaseModel):

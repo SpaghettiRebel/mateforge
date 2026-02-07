@@ -5,7 +5,7 @@ from auth_service.src.infrastructure.repositories.rate_limiter import RateLimite
 from auth_service.src.infrastructure.security import hash_password, verify_password, create_token, decode_access_token
 from auth_service.src.infrastructure.email import send_verification_email
 from auth_service.src.infrastructure.config import settings
-from auth_service.src.infrastructure.exceptions import TokenExpiredError, TokenInvalidError
+from auth_service.src.infrastructure.exceptions import TokenExpiredError, TokenInvalidError, UserDoesNotExist
 
 from uuid import uuid4, UUID
 import json
@@ -96,22 +96,23 @@ class AuthService:
                                 detail="Invalid or expired refresh token")
 
         data = json.loads(raw_data)
+        user_id = data['user_id']
 
         stored_fingerprint = data.get('fingerprint')
         if stored_fingerprint != 'unknown' and stored_fingerprint != fingerprint:
-            await self.token_repository.delete_token(refresh_token)
+            await self.token_repository.delete_token(user_id, refresh_token)
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                 detail="Wrong device")
 
-        await self.token_repository.delete_token(refresh_token)
+        await self.token_repository.delete_token(user_id, refresh_token)
 
-        new_access_token = create_token(user_id=data['user_id'], token_type='auth')
+        new_access_token = create_token(user_id=user_id, token_type='auth')
         new_refresh_token = str(uuid4())
 
         data['fingerprint'] = fingerprint or "unknown"
         ttl = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
 
-        await self.token_repository.save_token(new_refresh_token, json.dumps(data), ttl)
+        await self.token_repository.save_token(user_id, new_refresh_token, json.dumps(data), ttl)
         logger.info(f"Successfully saved refresh token for user {data['user_id']}. TTL: {ttl}s")
 
         return Token(access_token=new_access_token, refresh_token=new_refresh_token, token_type="bearer")
@@ -131,10 +132,13 @@ class AuthService:
                 detail="Invalid token",
             )
 
-        user = await self.user_repository.mark_as_verified(user_id)
-        if not user:
+        try:
+            await self.user_repository.mark_as_verified(user_id)
+        except UserDoesNotExist:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                 detail="User not found")
+
+        await self.user_repository.session.commit()
 
         return {"msg": "Email successfully verified"}
 
@@ -154,9 +158,11 @@ class AuthService:
                 detail="Invalid token",
             )
 
-        await self.token_repository.delete_token(user_id, refresh_token)
+        await self.token_repository.delete_token(str(user_id), refresh_token)
+
         return {"msg": "Logged out successfully"}
 
     async def logout_all_sessions(self, user_id: UUID) -> dict:
         await self.token_repository.delete_all_user_tokens(str(user_id))
+
         return {"msg": "Logged out from all devices"}

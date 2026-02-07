@@ -1,8 +1,20 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import func, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import func, ForeignKey, select
+from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
 from auth_service.src.infrastructure.database import Base
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    subscriber_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    author_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
 
 
 class UserDB(Base):
@@ -32,14 +44,16 @@ class UserDB(Base):
         back_populates="following"
     )
 
-
-class Subscription(Base):
-    __tablename__ = "subscriptions"
-
-    subscriber_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    followers_count: Mapped[int] = column_property(
+        select(func.count(Subscription.subscriber_id))
+        .where(Subscription.author_id == id)
+        .correlate_except(Subscription)
+        .scalar_subquery()
     )
 
-    author_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    following_count: Mapped[int] = column_property(
+        select(func.count(Subscription.author_id))
+        .where(Subscription.subscriber_id == id)
+        .correlate_except(Subscription)
+        .scalar_subquery()
     )
