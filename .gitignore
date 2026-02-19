@@ -1,5 +1,6 @@
 __pycache__/
 *.so
+.pytest_cache
 .Python
 myenv/
 venv/
