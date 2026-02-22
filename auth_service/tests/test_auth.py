@@ -168,7 +168,7 @@ async def test_auth_errors(client):
     bad_payload = {
         "email": "bad@test.com",
         "username": "baduser",
-        "password": "123"  # Слишком короткий
+        "password": "123"
     }
     resp = await client.post("/auth/register", json=bad_payload)
     assert resp.status_code == 422
@@ -179,3 +179,41 @@ async def test_auth_errors(client):
 
     assert resp.status_code in [429, 401]
 
+
+@pytest.mark.asyncio
+async def test_logout_all_sessions_logic(client, db_session):
+    email = "multidevice@test.com"
+    await client.post("/auth/register", json={
+        "email": email, "username": "multiman", "password": "Strong_password-33"
+    })
+
+    from sqlalchemy import update
+    from auth_service.src.infrastructure.models import UserDB
+    await db_session.execute(update(UserDB).where(UserDB.email == email).values(is_verified=True))
+    await db_session.commit()
+
+    resp1 = await client.post("/auth/login",
+                              data={"username": email, "password": "Strong_password-33"},
+                              headers={"User-Agent": "Mobile-App"})
+    token_mobile = resp1.json()["refresh_token"]
+    access_token_mobile = resp1.json()["access_token"]
+
+    resp2 = await client.post("/auth/login",
+                              data={"username": email, "password": "Strong_password-33"},
+                              headers={"User-Agent": "Desktop-Browser"})
+    token_desktop = resp2.json()["refresh_token"]
+
+    for t, agent in [(token_mobile, "Mobile-App"), (token_desktop, "Desktop-Browser")]:
+        check = await client.post("/auth/refresh", json={"refresh_token": t}, headers={"User-Agent": agent})
+        assert check.status_code == 200
+
+    logout_all_resp = await client.delete(
+        "/auth/logout-all",
+        headers={"Authorization": f"Bearer {access_token_mobile}"}
+    )
+    assert logout_all_resp.status_code == 200
+
+    for t, agent in [(token_mobile, "Mobile-App"), (token_desktop, "Desktop-Browser")]:
+        final_check = await client.post("/auth/refresh", json={"refresh_token": t}, headers={"User-Agent": agent})
+        assert final_check.status_code == 401
+        assert final_check.json()["detail"] == "Invalid or expired refresh token"
