@@ -89,3 +89,32 @@ async def client(db_session, redis_client) -> AsyncGenerator[AsyncClient, None]:
 @pytest.fixture(autouse=True)
 def mock_email_client(monkeypatch):
     monkeypatch.setattr("fastapi_mail.FastMail.send_message", AsyncMock())
+
+
+@pytest.fixture(autouse=True)
+async def clear_data(db_session, redis_client):
+    yield
+    from sqlalchemy import delete
+    from auth_service.src.infrastructure.models import UserDB  # импортируй свою модель
+    await db_session.execute(delete(UserDB))
+    await db_session.commit()
+    await redis_client.flushall()
+
+
+@pytest.fixture
+async def verified_user(client, db_session):
+    payload = {
+        "email": "active@test.com",
+        "username": "active_user",
+        "password": "Strong_password-33"
+    }
+
+    await client.post("/auth/register", json={**payload, "fingerprint": "test_fp"})
+
+    from sqlalchemy import select
+    from auth_service.src.infrastructure.models import UserDB
+    stmt = select(UserDB).where(UserDB.email == payload["email"])
+    user = (await db_session.execute(stmt)).scalar_one()
+    user.is_verified = True
+    await db_session.commit()
+    return payload, user.id
