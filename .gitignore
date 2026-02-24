@@ -8,7 +8,9 @@ ENV/
 env/
 
 auth_service/.env
+projects_service/.env
 .env.local
 
 .vscode/
+
 .idea/
