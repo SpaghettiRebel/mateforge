@@ -7,7 +7,7 @@ venv/
 ENV/
 env/
 
-.env
+auth_service/.env
 .env.local
 
 .vscode/

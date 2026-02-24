@@ -1,5 +1,5 @@
 services:
-  db:
+  auth_db:
     image: postgres:15-alpine
     restart: always
     environment:
@@ -9,18 +9,46 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - auth_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U user -d auth_db" ]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  redis:
+  auth_redis:
     image: redis:7-alpine
     restart: always
     ports:
       - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  projects_db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: projects_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - projects_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U user -d projects_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  projects_redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6380:6379"
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
@@ -33,18 +61,37 @@ services:
       - "8000:8000"
     volumes:
       - ./auth_service:/app/auth_service
-      - ./migrations:/app/migrations
-      - ./alembic.ini:/app/alembic.ini
+      - ./auth_service/migrations:/app/migrations
+      - ./auth_service/alembic.ini:/app/alembic.ini
     env_file:
-      - .env
+      - ./auth_service/.env
     depends_on:
-      db:
+      auth_db:
         condition: service_healthy
-      redis:
+      auth_redis:
         condition: service_healthy
     command: >
       sh -c "python3 -m alembic upgrade head &&
              python -m uvicorn auth_service.src.main:app --host 0.0.0.0 --port 8000 --reload"
 
+  projects_service:
+    build: ./projects_service
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./projects_service:/app/projects_service
+      - ./projects_service/migrations:/app/migrations
+      #- ./projects_service/alembic.ini:/app/alembic.ini
+    env_file:
+      - ./projects_service/.env
+    depends_on:
+      projects_db:
+        condition: service_healthy
+      projects_redis:
+        condition: service_healthy
+    command: >
+      sh -c "python -m uvicorn projects_service.src.main:app --host 0.0.0.0 --port 8001 --reload"
+
 volumes:
-  postgres_data:
+  auth_postgres_data:
+  projects_postgres_data:
