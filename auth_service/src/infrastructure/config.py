@@ -1,5 +1,5 @@
+from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
-import os
 
 
 class Settings(BaseSettings):
@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     MAIL_USERNAME: str
     MAIL_PASSWORD: str
     MAIL_FROM: str
+
+    ALLOWED_ORIGINS: List[str] = ["http://localhost:8000", "http://localhost:8001"]
 
     @property
     def DATABASE_URL_ASYNCPG(self):

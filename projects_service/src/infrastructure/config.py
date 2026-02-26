@@ -1,5 +1,5 @@
+from typing import List, Union
 from pydantic_settings import BaseSettings, SettingsConfigDict
-import os
 
 
 class Settings(BaseSettings):
@@ -18,9 +18,8 @@ class Settings(BaseSettings):
     VERIFY_ACCESS_TOKEN_EXPIRE_HOURS: int = 12
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
-    MAIL_USERNAME: str
-    MAIL_PASSWORD: str
-    MAIL_FROM: str
+    USERS_SERVICE_URL: str
+    ALLOWED_ORIGINS: Union[List[str], str] = ["http://localhost:8000", "http://localhost:8001"]
 
     @property
     def DATABASE_URL_ASYNCPG(self):
