@@ -15,6 +15,12 @@ class ProjectInviteType(str, Enum):
     INVITE = "invite"
     REQUEST = "request"
 
+class StaffRole(str, Enum):
+    FOUNDER = "founder"
+    ADMIN = "admin"
+    MANAGER = "manager"
+    PARTICIPANT = "participant"
+
 class Project(Base):
     __tablename__ = "projects"
 
