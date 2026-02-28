@@ -1,7 +1,9 @@
 from uuid import UUID
+from fastapi import HTTPException, status
 
+from projects_service.src.infrastructure.models import StaffRole
 from projects_service.src.infrastructure.repositories.project_repository import ProjectRepository
-from projects_service.src.presentation.schemas import ProjectCreateSchema
+from projects_service.src.presentation.schemas import ProjectCreateSchema, ProjectPublicSchema, ProjectFullSchema
 
 
 class ProjectService:
@@ -11,14 +13,81 @@ class ProjectService:
     async def create_project(self, project_data: ProjectCreateSchema, user_id: UUID):
         new_project = await self.repository.create_instance(project_data, user_id)
 
-        await self.repository.add_project(new_project)
+        await self.repository.add(new_project)
         await self.repository.session.commit()
         await self.repository.session.refresh(new_project)
 
         return {'msg': 'Project was created successfully',
                 'project_id': new_project.id}
 
-    async def get_project(self, project_id: UUID, user_id: UUID):
-        ... # TODO: получить project по id
-            # TODO: проверить есть ли user_id в project.staff
-            # TODO: выдать либо фулл, либо обрезанную схему
+    async def get_project(self, project_id: UUID, user_id: UUID | None = None):
+        project = await self.repository.get_by_id(project_id)
+        if not project:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail="Project not found")
+
+        if not project.is_private:
+            return ProjectFullSchema.model_validate(project)
+
+        if not user_id:
+            return ProjectPublicSchema.model_validate(project)
+
+        user_role = await self.repository.get_user_role(project_id, user_id)
+
+        if not user_role:
+            return ProjectPublicSchema.model_validate(project)
+        return ProjectFullSchema.model_validate(project)
+
+
+    async def get_user_projects(self, user_id: UUID, current_user_id: UUID):
+        projects_list = await self.repository.get_projects_with_staff_flag(user_id, current_user_id)
+        res = []
+
+        for project in projects_list:
+            is_staff = getattr(project, "is_staff", False)
+            project_data = project[0]
+
+            if not project_data.is_private or is_staff:
+                res.append(ProjectFullSchema.model_validate(project_data))
+            else:
+                res.append(ProjectPublicSchema.model_validate(project_data))
+
+        return res
+
+
+    async def delete_project(self, project_id: UUID, user_id: UUID):
+        project = await self.repository.get_by_id(project_id)
+        if not project:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail="Project not found")
+
+        if project.founder_id != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="Only a creator of the project can delete it")
+
+        await self.repository.delete(project_id)
+        await self.repository.session.commit()
+
+        return {'msg': 'Project was deleted successfully'}
+
+
+    async def update_project(self, project_id: UUID, project_data: ProjectCreateSchema, user_id: UUID):
+        project = await self.repository.get_by_id(project_id)
+        if not project:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail="Project not found")
+
+        user_role = await self.repository.get_user_role(project_id, user_id)
+
+        forbidden_roles = (StaffRole.MANAGER, StaffRole.PARTICIPANT)
+        if not user_role or user_role in forbidden_roles:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="You have no rights to change this project's data")
+
+        project.name = project_data.name
+        project.about = project_data.about
+        project.is_private = project_data.is_private
+
+        updated_project = await self.repository.update(project, project_data)
+
+        return ProjectFullSchema.model_validate(updated_project)

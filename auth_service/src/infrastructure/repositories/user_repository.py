@@ -1,8 +1,8 @@
 from typing import List
 from uuid import UUID, uuid4
-from sqlalchemy import select, delete, func
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
+
 from auth_service.src.infrastructure.models import UserDB, Subscription
 from auth_service.src.presentation.schemas import UserCreate
 from auth_service.src.infrastructure.exceptions import UserDoesNotExist

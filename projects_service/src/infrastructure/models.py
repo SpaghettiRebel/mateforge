@@ -21,6 +21,7 @@ class StaffRole(str, Enum):
     MANAGER = "manager"
     PARTICIPANT = "participant"
 
+
 class Project(Base):
     __tablename__ = "projects"
 
