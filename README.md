@@ -2,5 +2,6 @@
 MateForge — a unique place for searching for creative collaborations.
 
 
-It's new modern ecosystem for indi-authors for your professional growth.
+It's new modern ecosystem for indie authors' professional growth.
+
 
