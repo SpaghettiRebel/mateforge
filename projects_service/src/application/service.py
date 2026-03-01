@@ -1,7 +1,7 @@
 from uuid import UUID
 from fastapi import HTTPException, status
 
-from projects_service.src.infrastructure.models import StaffRole
+from projects_service.src.infrastructure.models import StaffRole, RequestStatus
 from projects_service.src.infrastructure.repositories.project_repository import ProjectRepository
 from projects_service.src.presentation.schemas import ProjectCreateSchema, ProjectPublicSchema, ProjectFullSchema, \
     ProjectUpdateSchema
@@ -12,7 +12,7 @@ class ProjectService:
         self.repository = project_repository
 
     async def create_project(self, project_data: ProjectCreateSchema, user_id: UUID):
-        new_project = await self.repository.create_instance(project_data, user_id)
+        new_project = await self.repository.create_project_instance(project_data, user_id)
 
         await self.repository.add(new_project)
         await self.repository.session.commit()
@@ -86,3 +86,43 @@ class ProjectService:
         updated_project = await self.repository.update(project, project_data)
 
         return ProjectFullSchema.model_validate(updated_project)
+
+
+    async def send_invite(self, project_id: UUID, target_user_id: UUID, current_user_id: UUID):
+        current_user_role = await self.repository.get_user_role(project_id, current_user_id)
+        if not current_user_role or current_user_role == StaffRole.PARTICIPANT:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="You have no rights to invite new members to this project")
+
+        target_user_role = await self.repository.get_user_role(project_id, target_user_id)
+        if target_user_role:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail="Member already exists")
+
+        has_invited_or_requested = await self.repository.exists_invite(
+            project_id,
+            target_user_id,
+            status=RequestStatus.PENDING
+        )
+        if has_invited_or_requested:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail="Invitation already exists")
+
+        await self.repository.add_invite(project_id, target_user_id, current_user_id)
+        await self.repository.session.commit()
+
+    async def send_join_request(self, project_id: UUID, current_user_id: UUID):
+        current_user_role = await self.repository.get_user_role(project_id, current_user_id)
+        if current_user_role:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail="Member already exists")
+
+        has_invited_or_requested = await self.repository.exists_invite(project_id,
+                                                                       current_user_id,
+                                                                       status=RequestStatus.PENDING)
+        if has_invited_or_requested:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail="Invitation already exists")
+
+        await self.repository.add_request(project_id, current_user_id)
+        await self.repository.session.commit()

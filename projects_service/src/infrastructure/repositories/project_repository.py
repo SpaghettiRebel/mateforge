@@ -3,7 +3,8 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 
-from projects_service.src.infrastructure.models import Project, Staff, StaffRole
+from projects_service.src.infrastructure.models import Project, Staff, StaffRole, ProjectInvitation, ProjectInviteType, \
+    RequestStatus
 from projects_service.src.presentation.schemas import ProjectCreateSchema, ProjectUpdateSchema
 
 
@@ -12,12 +13,25 @@ class ProjectRepository:
         self.session = session
 
     @staticmethod
-    async def create_instance(project_data: ProjectCreateSchema, founder_id) -> Project:
+    async def create_project_instance(project_data: ProjectCreateSchema, founder_id) -> Project:
         new_project = Project(founder_id=founder_id,
                               name=project_data.name,
                               about=project_data.about,
                               is_private=project_data.is_private)
         return new_project
+
+    @staticmethod
+    async def create_invitation_instance(
+            project_id: UUID,
+            user_id: UUID,
+            sender_id: UUID,
+            invitation_type: ProjectInviteType
+    ) -> ProjectInvitation:
+        new_invitaion = ProjectInvitation(project_id=project_id,
+                              user_id=user_id,
+                              sender_id=sender_id,
+                              type=invitation_type)
+        return new_invitaion
 
     async def add(self, project: Project) -> Project:
         founder_as_staff = Staff(
@@ -77,3 +91,44 @@ class ProjectRepository:
         await self.session.refresh(project)
 
         return project
+
+    async def add_invite(self, project_id: UUID, target_user_id: UUID, current_user_id: UUID) -> None:
+        invite = await self.create_invitation_instance(
+            project_id=project_id,
+            sender_id=current_user_id,
+            user_id=target_user_id,
+            invitation_type=ProjectInviteType.INVITE
+        )
+
+        self.session.add(invite)
+        await self.session.flush()
+
+    async def add_request(self, project_id: UUID, current_user_id: UUID) -> None:
+        invite = await self.create_invitation_instance(
+            project_id=project_id,
+            sender_id=current_user_id,
+            user_id=current_user_id,
+            invitation_type=ProjectInviteType.REQUEST
+        )
+
+        self.session.add(invite)
+        await self.session.flush()
+
+    async def exists_invite(
+            self,
+            project_id: UUID,
+            user_id: UUID,
+            status: RequestStatus = RequestStatus.PENDING,
+    ):
+        query = (
+            select(ProjectInvitation.id)
+            .where(
+                ProjectInvitation.project_id == project_id,
+                ProjectInvitation.user_id == user_id,
+                ProjectInvitation.status == status
+            )
+            .limit(1)
+        )
+        result = await self.session.execute(query)
+        return result.scalar() is not None
+

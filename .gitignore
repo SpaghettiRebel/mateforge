@@ -9,6 +9,7 @@ env/
 
 auth_service/.env
 projects_service/.env
+portfolio_service/.env
 .env.local
 
 .vscode/

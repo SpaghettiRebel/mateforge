@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from sqlalchemy import func, ForeignKey, select
-from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
+from sqlalchemy import func, ForeignKey, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from projects_service.src.infrastructure.database import Base
 
 
@@ -66,6 +66,13 @@ class ProjectInvitation(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     project: Mapped["Project"] = relationship(back_populates="invitations")
+
+    __table_args__ = (
+        UniqueConstraint(
+            'project_id', 'user_id', 'type', 'status',
+            name='uix_project_user_type_status'
+        ),
+    )
 
 class Subscription(Base):
     __tablename__ = "subscriptions"

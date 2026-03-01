@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from uuid import UUID
 from typing import Union, List
 
@@ -9,6 +9,22 @@ from projects_service.src.presentation.schemas import ProjectCreateSchema, Proje
 
 router = APIRouter()
 
+@router.post('/{project_id}/invite', status_code=201)
+async def send_invite_to_project(
+        target_user_id: UUID,
+        project_id: UUID,
+        current_user_id: UUID = Depends(get_current_user_id),
+        service: ProjectService = Depends(get_service),
+):
+    return await service.send_invite(project_id, target_user_id, current_user_id)
+
+@router.post('/{project_id}/request', status_code=201)
+async def send_request_to_project(
+        project_id: UUID,
+        current_user_id: UUID = Depends(get_current_user_id),
+        service: ProjectService = Depends(get_service),
+):
+    return await service.send_join_request(project_id, current_user_id)
 
 @router.patch('/{project_id}', response_model=ProjectFullSchema)
 async def update_project(
