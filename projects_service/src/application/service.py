@@ -3,7 +3,8 @@ from fastapi import HTTPException, status
 
 from projects_service.src.infrastructure.models import StaffRole
 from projects_service.src.infrastructure.repositories.project_repository import ProjectRepository
-from projects_service.src.presentation.schemas import ProjectCreateSchema, ProjectPublicSchema, ProjectFullSchema
+from projects_service.src.presentation.schemas import ProjectCreateSchema, ProjectPublicSchema, ProjectFullSchema, \
+    ProjectUpdateSchema
 
 
 class ProjectService:
@@ -17,8 +18,8 @@ class ProjectService:
         await self.repository.session.commit()
         await self.repository.session.refresh(new_project)
 
-        return {'msg': 'Project was created successfully',
-                'project_id': new_project.id}
+        return ProjectFullSchema.model_validate(new_project)
+
 
     async def get_project(self, project_id: UUID, user_id: UUID | None = None):
         project = await self.repository.get_by_id(project_id)
@@ -68,10 +69,8 @@ class ProjectService:
         await self.repository.delete(project_id)
         await self.repository.session.commit()
 
-        return {'msg': 'Project was deleted successfully'}
 
-
-    async def update_project(self, project_id: UUID, project_data: ProjectCreateSchema, user_id: UUID):
+    async def update_project(self, project_id: UUID, project_data: ProjectUpdateSchema, user_id: UUID):
         project = await self.repository.get_by_id(project_id)
         if not project:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
@@ -83,10 +82,6 @@ class ProjectService:
         if not user_role or user_role in forbidden_roles:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                 detail="You have no rights to change this project's data")
-
-        project.name = project_data.name
-        project.about = project_data.about
-        project.is_private = project_data.is_private
 
         updated_project = await self.repository.update(project, project_data)
 

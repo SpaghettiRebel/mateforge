@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 
 from projects_service.src.infrastructure.models import Project, Staff, StaffRole
-from projects_service.src.presentation.schemas import ProjectCreateSchema
+from projects_service.src.presentation.schemas import ProjectCreateSchema, ProjectUpdateSchema
 
 
 class ProjectRepository:
@@ -67,10 +67,11 @@ class ProjectRepository:
         result = await self.session.execute(query)
         return result.all()
 
-    async def update(self, project: Project, project_data: ProjectCreateSchema) -> Project:
-        project.name = project_data.name
-        project.about = project_data.about
-        project.is_private = project_data.is_private
+    async def update(self, project: Project, project_data: ProjectUpdateSchema) -> Project:
+        update_data = project_data.model_dump(exclude_unset=True)
+
+        for key, value in update_data.items():
+            setattr(project, key, value)
 
         await self.session.commit()
         await self.session.refresh(project)

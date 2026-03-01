@@ -11,6 +11,11 @@ class ProjectBase(BaseModel):
 class ProjectCreateSchema(ProjectBase):
     about: str
 
+class ProjectUpdateSchema(BaseModel):
+    name: Optional[str] = None
+    about: Optional[str] = None
+    is_private: Optional[bool] = None
+
 class ProjectPublicSchema(ProjectBase):
     id: UUID
     avatar_path: Optional[str]
