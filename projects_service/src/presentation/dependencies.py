@@ -5,7 +5,8 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from projects_service.src.application.service import ProjectService
+from projects_service.src.application.projects_managing_service import ProjectService
+from projects_service.src.application.invite_service import InviteService
 from projects_service.src.infrastructure.database import get_async_session
 from projects_service.src.infrastructure.exceptions import TokenExpiredError, TokenInvalidError
 from projects_service.src.infrastructure.repositories.project_repository import ProjectRepository
@@ -46,7 +47,12 @@ async def get_optional_user_id(token: str | None = Depends(oauth2_scheme)) -> UU
     return await get_current_user_id(token)
 
 
-def get_service(
+def get_project_service(
         project_repository: ProjectRepository = Depends(get_project_repository),
 ):
     return ProjectService(project_repository)
+
+def get_invite_service(
+        project_repository: ProjectRepository = Depends(get_project_repository),
+):
+    return InviteService(project_repository)

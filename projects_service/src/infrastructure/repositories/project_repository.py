@@ -103,7 +103,7 @@ class ProjectRepository:
         self.session.add(invite)
         await self.session.flush()
 
-    async def add_request(self, project_id: UUID, current_user_id: UUID) -> None:
+    async def add_request(self, project_id: UUID, current_user_id: UUID) -> UUID:
         invite = await self.create_invitation_instance(
             project_id=project_id,
             sender_id=current_user_id,
@@ -113,8 +113,11 @@ class ProjectRepository:
 
         self.session.add(invite)
         await self.session.flush()
+        await self.session.refresh(invite)
 
-    async def exists_invite(
+        return invite.id
+
+    async def exists_invite_or_request(
             self,
             project_id: UUID,
             user_id: UUID,
@@ -132,3 +135,24 @@ class ProjectRepository:
         result = await self.session.execute(query)
         return result.scalar() is not None
 
+    async def get_invitation_by_id(self, invite_id: UUID):
+        query = (
+            select(ProjectInvitation)
+            .where(ProjectInvitation.id == invite_id)
+        )
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+
+    async def add_to_staff(
+            self,
+            project_id,
+            user_id,
+            role=StaffRole.PARTICIPANT
+    ) -> None:
+        new_member = Staff(
+            project_id=project_id,
+            user_id=user_id,
+            role=role.value
+        )
+        self.session.add(new_member)
+        await self.session.flush()

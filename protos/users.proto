@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package users;
+
+service UsersExternal {
+  rpc GetUserExistence (UserRequest) returns (ExistenceResponse);
+}
+
+message UserRequest {
+  string user_id = 1;
+}
+
+message ExistenceResponse {
+  bool exists = 1;
+}

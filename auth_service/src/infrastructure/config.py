@@ -9,6 +9,11 @@ class Settings(BaseSettings):
     DB_PASS: str
     DB_NAME: str
 
+    APP_HOST: str = "0.0.0.0"
+    APP_PORT: int = 8000
+    GRPC_PORT: int = 50051
+    LOG_LEVEL: str = "info"
+
     REDIS_HOST: str
     REDIS_PORT: int
 
@@ -30,7 +35,7 @@ class Settings(BaseSettings):
 
     @property
     def REDIS_URL(self):
-        return f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}"
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

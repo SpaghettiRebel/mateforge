@@ -56,11 +56,15 @@ services:
       retries: 5
 
   auth_service:
-    build: ./auth_service
+    build:
+      context: .
+      dockerfile: auth_service/Dockerfile
     ports:
       - "8000:8000"
+      - "50051:50051"
     volumes:
       - ./auth_service:/app/auth_service
+      - /app/auth_service/src/infrastructure/generated
       - ./auth_service/migrations:/app/migrations
       - ./auth_service/alembic.ini:/app/alembic.ini
     env_file:
@@ -72,14 +76,17 @@ services:
         condition: service_healthy
     command: >
       sh -c "python3 -m alembic upgrade head &&
-             python -m uvicorn auth_service.src.main:app --host 0.0.0.0 --port 8000 --reload"
+                 python -m auth_service.src.run"
 
   projects_service:
-    build: ./projects_service
+    build:
+      context: .
+      dockerfile: projects_service/Dockerfile
     ports:
       - "8001:8001"
     volumes:
       - ./projects_service:/app/projects_service
+      - /app/projects_service/src/infrastructure/generated
       - ./projects_service/migrations:/app/migrations
       - ./projects_service/alembic.ini:/app/alembic.ini
     env_file:

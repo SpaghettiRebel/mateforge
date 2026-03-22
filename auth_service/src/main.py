@@ -15,6 +15,7 @@ app.include_router(user_router, prefix="/users", tags=["Users"])
 
 setup_middleware(app)
 
+
 @app.get("/health")
-def health_check():
+async def health_check():
     return {"status": "ok"}
