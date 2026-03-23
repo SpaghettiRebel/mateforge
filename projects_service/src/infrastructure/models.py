@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from sqlalchemy import func, ForeignKey, UniqueConstraint, String
+from sqlalchemy import func, ForeignKey, UniqueConstraint, String, Table, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from projects_service.src.infrastructure.database import Base
 
@@ -52,6 +52,13 @@ class StaffRole(str, Enum):
         raise NotImplemented
 
 
+project_tags_association = Table(
+    "project_tags_association",
+    Base.metadata,
+    Column("project_id", ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
+)
+
 class Project(Base):
     __tablename__ = "projects"
 
@@ -70,6 +77,7 @@ class Project(Base):
     subscriptions: Mapped[list["Subscription"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     invitations: Mapped[list["ProjectInvitation"]] = relationship(back_populates="project",
                                                                   cascade="all, delete-orphan")
+    tags: Mapped[list["Tag"]] = relationship(secondary=project_tags_association, back_populates="projects")
 
 
 class Staff(Base):
@@ -142,3 +150,17 @@ class PublicationFile(Base):
     order: Mapped[int] = mapped_column(default=0)
 
     publication: Mapped["Publication"] = relationship(back_populates="files")
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    slug: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    group: Mapped[str] = mapped_column(String(30), default="general", index=True)
+
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    projects: Mapped[list["Project"]] = relationship(
+        secondary=project_tags_association, back_populates="tags"
+    )

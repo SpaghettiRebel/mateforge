@@ -1,7 +1,7 @@
 from uuid import UUID
 from fastapi import HTTPException, status
 
-from projects_service.src.infrastructure.models import StaffRole, RequestStatus
+from projects_service.src.infrastructure.models import StaffRole, Project
 from projects_service.src.infrastructure.repositories.project_repository import ProjectRepository
 from projects_service.src.presentation.schemas import ProjectCreateSchema, ProjectPublicSchema, ProjectFullSchema, \
     ProjectUpdateSchema
@@ -10,6 +10,22 @@ from projects_service.src.presentation.schemas import ProjectCreateSchema, Proje
 class ProjectService:
     def __init__(self, project_repository: ProjectRepository):
         self.repository = project_repository
+
+    @staticmethod
+    def to_search_document(project: Project):
+        """Превращает модель БД в плоский объект для Elasticsearch (на будущее)"""
+        return {
+            "id": str(project.id),
+            "title": project.title,
+            "description": project.description,
+            "tags": [t.slug for t in project.tags],
+            "tag_groups": {
+                group: [t.slug for t in project.tags if t.group == group]
+                for group in set(t.group for t in project.tags)
+            },
+            "created_at": project.created_at.timestamp(),
+            "owner_id": str(project.owner_id)
+        }
 
     async def _get_validated_roles(self, project_id: UUID, current_id: UUID, target_id: UUID):
         project = await self.repository.get_by_id(project_id)

@@ -1,9 +1,15 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import func, ForeignKey, select
+from enum import IntEnum
+from sqlalchemy import func, ForeignKey, select, String, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
 from auth_service.src.infrastructure.database import Base
 
+class SkillLevel(IntEnum):
+    BEGINNER = 1
+    INTERMEDIATE = 2
+    ADVANCED = 3
+    EXPERT = 4
 
 class Subscription(Base):
     __tablename__ = "subscriptions"
@@ -16,6 +22,26 @@ class Subscription(Base):
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
 
+class UserSkill(Base):
+    __tablename__ = "user_skills"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    skill_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("skills.id", ondelete="CASCADE"), primary_key=True)
+
+    level: Mapped[SkillLevel] = mapped_column(Integer, default=SkillLevel.BEGINNER)
+
+class Skill(Base):
+    __tablename__ = "skills"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    slug: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+
+    group: Mapped[str] = mapped_column(String(30), default="hard-skill", index=True)
+
+    users: Mapped[list["User"]] = relationship(
+        secondary="user_skills", back_populates="skills", viewonly=True
+    )
 
 class UserDB(Base):
     __tablename__ = "users"
