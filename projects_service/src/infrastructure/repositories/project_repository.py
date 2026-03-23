@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, List
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
@@ -122,7 +122,7 @@ class ProjectRepository:
             project_id: UUID,
             user_id: UUID,
             status: RequestStatus = RequestStatus.PENDING,
-    ):
+    ) -> bool:
         query = (
             select(ProjectInvitation.id)
             .where(
@@ -135,7 +135,7 @@ class ProjectRepository:
         result = await self.session.execute(query)
         return result.scalar() is not None
 
-    async def get_invitation_by_id(self, invite_id: UUID):
+    async def get_invitation_by_id(self, invite_id: UUID) -> ProjectInvitation | None:
         query = (
             select(ProjectInvitation)
             .where(ProjectInvitation.id == invite_id)
@@ -145,9 +145,9 @@ class ProjectRepository:
 
     async def add_to_staff(
             self,
-            project_id,
-            user_id,
-            role=StaffRole.PARTICIPANT
+            project_id: UUID,
+            user_id: UUID,
+            role: StaffRole = StaffRole.PARTICIPANT
     ) -> None:
         new_member = Staff(
             project_id=project_id,
@@ -156,3 +156,26 @@ class ProjectRepository:
         )
         self.session.add(new_member)
         await self.session.flush()
+
+    async def delete_from_staff(self, project_id: UUID, user_id: UUID) -> None:
+        query = delete(Staff).where(Staff.project_id == project_id, Staff.user_id == user_id)
+        await self.session.execute(query)
+
+    async def update_staff_role(
+            self,
+            project_id: UUID,
+            user_id: UUID,
+            new_role: StaffRole = StaffRole.PARTICIPANT
+    ) -> None:
+        query = select(Staff).where(Staff.project_id == project_id, Staff.user_id == user_id)
+        member = await self.session.execute(query)
+
+        member.role = new_role
+
+        await self.session.commit()
+
+    async def get_staff(self, project_id: UUID) -> List[Staff]:
+        query = select(Staff).where(Staff.project_id == project_id)
+        result = await self.session.execute(query)
+
+        return result.scalars().all()

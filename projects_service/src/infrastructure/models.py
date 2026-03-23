@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from sqlalchemy import func, ForeignKey, UniqueConstraint
+from sqlalchemy import func, ForeignKey, UniqueConstraint, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from projects_service.src.infrastructure.database import Base
 
@@ -20,6 +20,36 @@ class StaffRole(str, Enum):
     ADMIN = "admin"
     MANAGER = "manager"
     PARTICIPANT = "participant"
+
+    @property
+    def level(self) -> int:
+        levels = {
+            self.FOUNDER: 100,
+            self.ADMIN: 80,
+            self.MANAGER: 50,
+            self.PARTICIPANT: 10,
+        }
+        return levels[self]
+
+    def __ge__(self, other):
+        if self.__class__ is other.__class__:
+            return self.level >= other.level
+        raise NotImplemented
+
+    def __gt__(self, other):
+        if self.__class__ is other.__class__:
+            return self.level > other.level
+        raise NotImplemented
+
+    def __le__(self, other):
+        if self.__class__ is other.__class__:
+            return self.level <= other.level
+        raise NotImplemented
+
+    def __lt__(self, other):
+        if self.__class__ is other.__class__:
+            return self.level < other.level
+        raise NotImplemented
 
 
 class Project(Base):
@@ -47,7 +77,7 @@ class Staff(Base):
 
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('projects.id', ondelete="CASCADE"), primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(nullable=False, primary_key=True)
-    role: Mapped[str] = mapped_column(nullable=False)
+    role: Mapped[StaffRole] = mapped_column(String, nullable=False)
 
     project: Mapped["Project"] = relationship(back_populates="staff")
 

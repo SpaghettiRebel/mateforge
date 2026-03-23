@@ -4,10 +4,11 @@ from typing import Union, List
 
 from projects_service.src.application.projects_managing_service import ProjectService
 from projects_service.src.application.invite_service import InviteService
+from projects_service.src.infrastructure.models import StaffRole
 from projects_service.src.presentation.dependencies import (get_current_user_id, get_optional_user_id,
                                                             get_project_service, get_invite_service)
 from projects_service.src.presentation.schemas import (ProjectCreateSchema, ProjectPublicSchema, ProjectFullSchema,
-                                                       ProjectUpdateSchema)
+                                                       ProjectUpdateSchema, ProjectStaffSchema)
 
 router = APIRouter()
 
@@ -62,7 +63,6 @@ async def accept_request_to_project(
 async def reject_request_to_project(
         project_id: UUID,
         request_id: UUID,
-        request: Request,
         current_user_id: UUID = Depends(get_current_user_id),
         service: InviteService = Depends(get_invite_service),
 ):
@@ -104,10 +104,37 @@ async def get_project(
     return await service.get_project(project_id, current_user_id)
 
 
-@router.post('/', status_code=201)
+@router.post('/', status_code=201, response_model=ProjectFullSchema)
 async def create_project(
         project_data: ProjectCreateSchema,
         current_user_id: UUID = Depends(get_current_user_id),
         service: ProjectService = Depends(get_project_service),
-) -> ProjectFullSchema:
+):
     return await service.create_project(project_data, current_user_id)
+
+@router.delete('/{project_id}/staff/{user_id}')
+async def kick_member_out(
+        project_id: UUID,
+        user_id: UUID,
+        current_user_id: UUID = Depends(get_current_user_id),
+        service: ProjectService = Depends(get_project_service),
+):
+    return await service.delete_member_from_project(project_id, user_id, current_user_id)
+
+@router.patch('/{project_id}/staff/{user_id}')
+async def change_member_role(
+        project_id: UUID,
+        user_id: UUID,
+        new_role: StaffRole,
+        current_user_id: UUID = Depends(get_current_user_id),
+        service: ProjectService = Depends(get_project_service),
+):
+    return await service.change_member_role(project_id, user_id, current_user_id, new_role)
+
+@router.get('/{project_id}/staff', response_model=List[ProjectStaffSchema])
+async def get_project_staff(
+        project_id: UUID,
+        current_user_id: UUID = Depends(get_current_user_id),
+        service: ProjectService = Depends(get_project_service),
+):
+    return await service.get_project_staff(project_id, current_user_id)

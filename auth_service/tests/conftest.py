@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import AsyncMock
-import asyncio
 from typing import AsyncGenerator
 from testcontainers.postgres import PostgresContainer
 from testcontainers.redis import RedisContainer

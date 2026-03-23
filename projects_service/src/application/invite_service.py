@@ -105,7 +105,7 @@ class InviteService:
             invitation.status = RequestStatus.ACCEPTED
 
             await self.repository.session.commit()
-        except Exception as e:
+        except:
             await self.repository.session.rollback()
             raise e
 
@@ -154,7 +154,7 @@ class InviteService:
             invite.status = RequestStatus.ACCEPTED
 
             await self.repository.session.commit()
-        except Exception as e:
+        except:
             await self.repository.session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -182,7 +182,7 @@ class InviteService:
             invite.status = RequestStatus.REJECTED
             await self.repository.session.commit()
             return {"detail": "Invite rejected successfully"}
-        except Exception as e:
+        except:
             await self.repository.session.rollback()
             raise HTTPException(status_code=500, detail="Database error")
 
@@ -206,7 +206,7 @@ class InviteService:
         try:
             join_request.status = RequestStatus.REJECTED
             await self.repository.session.commit()
-        except Exception as e:
+        except:
             await self.repository.session.rollback()
             raise HTTPException(status_code=500, detail="Internal server error")
 
