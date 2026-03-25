@@ -89,7 +89,7 @@ jobs:
           MAIL_FROM: "test@example.com"
           DATABASE_URL: postgresql+asyncpg://postgres:password@localhost:5432/test_db
           REDIS_URL: redis://localhost:6379/0
-          PYTHONPATH: .
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           cd ${{ matrix.service }}
           pytest tests/
