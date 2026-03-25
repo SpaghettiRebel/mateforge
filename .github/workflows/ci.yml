@@ -30,7 +30,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Список твоих сервисов. Добавь portfolio_service, когда он будет готов.
         service: [auth_service, projects_service]
 
     services:
@@ -77,8 +76,18 @@ jobs:
 
       - name: Run Tests
         env:
-          # Коннекты к сервисам внутри GitHub Actions
-          DATABASE_URL: postgresql+asyncpg://user:password@localhost:5432/test_db
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASS: password
+          DB_NAME: test_db
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_SECRET: "test_secret_key_for_ci_only"
+          MAIL_USERNAME: "test@example.com"
+          MAIL_PASSWORD: "password"
+          MAIL_FROM: "test@example.com"
+          DATABASE_URL: postgresql+asyncpg://postgres:password@localhost:5432/test_db
           REDIS_URL: redis://localhost:6379/0
           PYTHONPATH: .
         run: |

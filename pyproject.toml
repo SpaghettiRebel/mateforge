@@ -25,7 +25,7 @@ extend-immutable-calls = [
     "fastapi.Query",
     "fastapi.Header",
     "fastapi.Body",
-    "projects_service.src.presentation.dependencies.get_service", # Твои кастомные зависимости тоже сюда
+    "projects_service.src.presentation.dependencies.get_service",
     "auth_service.src.presentation.dependencies.get_service"
 ]
 
