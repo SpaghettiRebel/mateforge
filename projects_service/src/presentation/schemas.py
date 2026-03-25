@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from projects_service.src.infrastructure.models import StaffRole
 
@@ -24,20 +24,17 @@ class ProjectPublicSchema(ProjectBase):
     avatar_path: Optional[str]
     banner_path: Optional[str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ProjectFullSchema(ProjectPublicSchema):
     founder_id: UUID
     about: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ProjectStaffSchema(BaseModel):
     user_id: UUID
     role: StaffRole
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

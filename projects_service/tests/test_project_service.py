@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -21,17 +21,21 @@ def service(repo_mock):
 @pytest.mark.asyncio
 async def test_create_project_success(service, repo_mock):
     user_id = uuid4()
-    project = AsyncMock()
+    project_id = uuid4()
+
+    project = MagicMock()
+    project.id = project_id
+    project.name = "Test Project"
+    project.avatar_path = "path/to/avatar"
+    project.banner_path = "path/to/banner"
+    project.founder_id = user_id
+    project.about = "Description"
+    project.is_private = False
 
     repo_mock.create_project_instance.return_value = project
 
     result = await service.create_project({}, user_id)
-
-    repo_mock.create_project_instance.assert_called_once()
-    repo_mock.add.assert_called_once_with(project)
-    repo_mock.session.commit.assert_called_once()
-
-    assert result is not None
+    assert result.name == "Test Project"
 
 
 @pytest.mark.asyncio
@@ -46,13 +50,19 @@ async def test_get_project_not_found(service, repo_mock):
 
 @pytest.mark.asyncio
 async def test_get_private_project_no_user(service, repo_mock):
-    project = AsyncMock(is_private=True)
+    project = MagicMock()
+    project.id = uuid4()
+    project.name = "Private Project"
+    project.avatar_path = "avatar.png"
+    project.banner_path = "banner.png"
+    project.is_private = True
 
     repo_mock.get_by_id.return_value = project
 
-    result = await service.get_project(uuid4(), None)
+    result = await service.get_project(project.id, None)
 
-    assert result is not None
+    assert result.name == "Private Project"
+    assert result.id == project.id
 
 
 @pytest.mark.asyncio

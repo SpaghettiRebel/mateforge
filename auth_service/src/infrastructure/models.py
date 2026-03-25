@@ -86,3 +86,9 @@ class UserDB(Base):
         .correlate_except(Subscription)
         .scalar_subquery()
     )
+
+    skills: Mapped[list["Skill"]] = relationship(
+        secondary="user_skills",
+        back_populates="users",
+        viewonly=True
+    )

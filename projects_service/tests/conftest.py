@@ -4,8 +4,10 @@ from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
+import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from projects_service.src.application.invite_service import InviteService
 from projects_service.src.application.projects_managing_service import ProjectService
@@ -15,16 +17,16 @@ from projects_service.src.main import app
 from projects_service.src.presentation.dependencies import get_invite_service, get_project_service
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-engine = create_async_engine(DATABASE_URL, echo=False)
+engine = create_async_engine(DATABASE_URL, echo=False, poolclass=NullPool)
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(scope="session", autouse=True)
 async def prepare_database():
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture()
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     connection = await engine.connect()
     transaction = await connection.begin()
@@ -64,7 +66,7 @@ def grpc_client_mock():
     return mock
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client(
     db_session,
     project_service,
@@ -113,7 +115,7 @@ def mock_auth(monkeypatch, user_id):
     )
 
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def clear_data(db_session):
     yield
     from sqlalchemy import text
