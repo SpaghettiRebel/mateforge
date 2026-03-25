@@ -90,6 +90,7 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://postgres:password@localhost:5432/test_db
           REDIS_URL: redis://localhost:6379/0
           PYTHONPATH: ${{ github.workspace }}
+          USERS_SERVICE_URL: "http://auth_service:8000"
         run: |
           cd ${{ matrix.service }}
           pytest tests/
