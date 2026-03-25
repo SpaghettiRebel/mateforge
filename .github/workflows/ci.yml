@@ -36,7 +36,7 @@ jobs:
       postgres:
         image: postgres:15-alpine
         env:
-          POSTGRES_USER: user
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: password
           POSTGRES_DB: test_db
         ports:
@@ -78,7 +78,7 @@ jobs:
         env:
           DB_HOST: localhost
           DB_PORT: 5432
-          DB_USER: user
+          DB_USER: postgres
           DB_PASS: password
           DB_NAME: test_db
           REDIS_HOST: localhost
