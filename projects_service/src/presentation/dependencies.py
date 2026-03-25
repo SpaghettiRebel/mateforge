@@ -1,16 +1,15 @@
-from fastapi.security import OAuth2PasswordBearer
-from fastapi import Depends, HTTPException, status
-
 from uuid import UUID
 
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from projects_service.src.application.projects_managing_service import ProjectService
 from projects_service.src.application.invite_service import InviteService
+from projects_service.src.application.projects_managing_service import ProjectService
+from projects_service.src.infrastructure.config import settings
 from projects_service.src.infrastructure.database import get_async_session
 from projects_service.src.infrastructure.exceptions import TokenExpiredError, TokenInvalidError
 from projects_service.src.infrastructure.repositories.project_repository import ProjectRepository
-from projects_service.src.infrastructure.config import settings
 from projects_service.src.infrastructure.security import decode_access_token
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f'http://{settings.USERS_SERVICE_URL}/auth/login', auto_error=False)
@@ -32,12 +31,12 @@ async def get_current_user_id(token: str | None = Depends(oauth2_scheme)) -> UUI
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired",
-        )
+        ) from None
     except TokenInvalidError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
-        )
+        ) from None
 
 
 async def get_optional_user_id(token: str | None = Depends(oauth2_scheme)) -> UUID | None:

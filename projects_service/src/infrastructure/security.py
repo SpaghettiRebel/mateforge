@@ -1,8 +1,10 @@
-from jose import jwt
 from uuid import UUID
+
+from jose import jwt
 
 from projects_service.src.infrastructure.config import settings
 from projects_service.src.infrastructure.exceptions import TokenExpiredError, TokenInvalidError
+
 
 def decode_access_token(token: str, token_type: str) -> UUID | None:
     try:
@@ -16,6 +18,6 @@ def decode_access_token(token: str, token_type: str) -> UUID | None:
 
         return UUID(user_id)
     except jwt.ExpiredSignatureError:
-        raise TokenExpiredError("Token has expired")
+        raise TokenExpiredError("Token has expired") from None
     except (jwt.JWTError, ValueError):
-        raise TokenInvalidError("Could not validate credentials")
+        raise TokenInvalidError("Could not validate credentials") from None

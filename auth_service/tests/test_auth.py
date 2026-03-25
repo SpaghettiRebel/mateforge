@@ -1,6 +1,7 @@
+
 import pytest
-import asyncio
 from sqlalchemy import select
+
 from auth_service.src.infrastructure.models import UserDB
 
 
@@ -25,7 +26,7 @@ async def test_full_registration_flow_success(client, db_session):
 
     assert user is not None
     assert user.username == "pg_master"
-    assert user.is_verified == False
+    assert not user.is_verified
 
     user.is_verified = True
     await db_session.commit()
@@ -89,7 +90,7 @@ async def test_full_registration_flow_invalid_fingerprint(client, db_session):
 
     assert user is not None
     assert user.username == "pg_master"
-    assert user.is_verified == False
+    assert not user.is_verified
 
 
     login_data = {
@@ -109,6 +110,7 @@ async def test_auth_happy_path(client, db_session):
     await client.post("/auth/register", json={"email": email, "username": "happy", "password": "Strong_password-33"})
 
     from sqlalchemy import update
+
     from auth_service.src.infrastructure.models import UserDB
     await db_session.execute(update(UserDB).where(UserDB.email == email).values(is_verified=True))
     await db_session.commit()
@@ -139,6 +141,7 @@ async def test_auth_security_fingerprint_protection(client, db_session):
     await client.post("/auth/register", json={"email": email, "username": "guard", "password": "Strong_password-33"})
 
     from sqlalchemy import update
+
     from auth_service.src.infrastructure.models import UserDB
     await db_session.execute(update(UserDB).where(UserDB.email == email).values(is_verified=True))
     await db_session.commit()
@@ -188,6 +191,7 @@ async def test_logout_all_sessions_logic(client, db_session):
     })
 
     from sqlalchemy import update
+
     from auth_service.src.infrastructure.models import UserDB
     await db_session.execute(update(UserDB).where(UserDB.email == email).values(is_verified=True))
     await db_session.commit()

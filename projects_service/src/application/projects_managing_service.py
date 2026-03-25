@@ -1,10 +1,15 @@
 from uuid import UUID
+
 from fastapi import HTTPException, status
 
-from projects_service.src.infrastructure.models import StaffRole, Project
+from projects_service.src.infrastructure.models import Project, StaffRole
 from projects_service.src.infrastructure.repositories.project_repository import ProjectRepository
-from projects_service.src.presentation.schemas import ProjectCreateSchema, ProjectPublicSchema, ProjectFullSchema, \
-    ProjectUpdateSchema
+from projects_service.src.presentation.schemas import (
+    ProjectCreateSchema,
+    ProjectFullSchema,
+    ProjectPublicSchema,
+    ProjectUpdateSchema,
+)
 
 
 class ProjectService:

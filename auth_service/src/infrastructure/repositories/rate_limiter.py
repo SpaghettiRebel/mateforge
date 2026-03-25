@@ -1,5 +1,5 @@
-from redis.asyncio import Redis
 from fastapi import HTTPException, status
+from redis.asyncio import Redis
 
 
 class RateLimiter:

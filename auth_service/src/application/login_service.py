@@ -1,16 +1,17 @@
-from auth_service.src.presentation.schemas import UserCreate, UserRead, Token
-from auth_service.src.infrastructure.repositories.user_repository import UserRepository
-from auth_service.src.infrastructure.repositories.token_repository import TokenRepository
-from auth_service.src.infrastructure.repositories.rate_limiter import RateLimiter
-from auth_service.src.infrastructure.security import hash_password, verify_password, create_token, decode_access_token
-from auth_service.src.infrastructure.email import send_verification_email
-from auth_service.src.infrastructure.config import settings
-from auth_service.src.infrastructure.exceptions import TokenExpiredError, TokenInvalidError, UserDoesNotExist
-
-from uuid import uuid4, UUID
 import json
 import logging
-from fastapi import HTTPException, BackgroundTasks, status, Depends
+from uuid import UUID, uuid4
+
+from fastapi import BackgroundTasks, HTTPException, status
+
+from auth_service.src.infrastructure.config import settings
+from auth_service.src.infrastructure.email import send_verification_email
+from auth_service.src.infrastructure.exceptions import TokenExpiredError, TokenInvalidError, UserDoesNotExist
+from auth_service.src.infrastructure.repositories.rate_limiter import RateLimiter
+from auth_service.src.infrastructure.repositories.token_repository import TokenRepository
+from auth_service.src.infrastructure.repositories.user_repository import UserRepository
+from auth_service.src.infrastructure.security import create_token, decode_access_token, hash_password, verify_password
+from auth_service.src.presentation.schemas import Token, UserCreate, UserRead
 
 logger = logging.getLogger(__name__)
 
@@ -125,18 +126,18 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token expired",
                 headers={"WWW-Authenticate": "Bearer"},
-            )
+            ) from None
         except TokenInvalidError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token",
-            )
+            ) from None
 
         try:
             await self.user_repository.mark_as_verified(user_id)
         except UserDoesNotExist:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail="User not found")
+                                detail="User not found") from None
 
         await self.user_repository.session.commit()
 

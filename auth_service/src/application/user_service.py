@@ -1,12 +1,15 @@
-from typing import List
-from auth_service.src.presentation.schemas import UserRead, UserData
-from auth_service.src.infrastructure.repositories.user_repository import UserRepository
-from auth_service.src.infrastructure.repositories.token_repository import TokenRepository
-from auth_service.src.infrastructure.exceptions import UserDoesNotExist
-from sqlalchemy.exc import IntegrityError
-from uuid import UUID
-from fastapi import HTTPException, BackgroundTasks, status, Depends
 from enum import Enum
+from typing import List
+from uuid import UUID
+
+from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
+
+from auth_service.src.infrastructure.exceptions import UserDoesNotExist
+from auth_service.src.infrastructure.repositories.token_repository import TokenRepository
+from auth_service.src.infrastructure.repositories.user_repository import UserRepository
+from auth_service.src.presentation.schemas import UserData, UserRead
+
 
 class AccessType(Enum):
     FREE = 1
@@ -26,7 +29,7 @@ class UserService:
             user = await self.user_repository.get_by_id(user_id)
         except UserDoesNotExist:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail="User not found")
+                                detail="User not found") from None
 
         if access_type == AccessType.PRIVATE:
             return UserData.model_validate(user)
@@ -51,7 +54,7 @@ class UserService:
             return UserData.model_validate(user)
         except UserDoesNotExist:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail="User not found")
+                                detail="User not found") from None
 
     async def follow_user(self, user_id: UUID, follower_id: UUID) -> dict:
         if user_id == follower_id:
@@ -61,7 +64,7 @@ class UserService:
             await self.user_repository.follow(user_id=user_id, follower_id=follower_id)
         except IntegrityError:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail="Error due to follow")
+                                detail="Error due to follow") from None
 
         await self.user_repository.session.commit()
 

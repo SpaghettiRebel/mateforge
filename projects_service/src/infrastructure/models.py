@@ -1,8 +1,10 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from sqlalchemy import func, ForeignKey, UniqueConstraint, String, Table, Column
+
+from sqlalchemy import Column, ForeignKey, String, Table, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from projects_service.src.infrastructure.database import Base
 
 
@@ -34,22 +36,22 @@ class StaffRole(str, Enum):
     def __ge__(self, other):
         if self.__class__ is other.__class__:
             return self.level >= other.level
-        raise NotImplemented
+        raise NotImplementedError
 
     def __gt__(self, other):
         if self.__class__ is other.__class__:
             return self.level > other.level
-        raise NotImplemented
+        raise NotImplementedError
 
     def __le__(self, other):
         if self.__class__ is other.__class__:
             return self.level <= other.level
-        raise NotImplemented
+        raise NotImplementedError
 
     def __lt__(self, other):
         if self.__class__ is other.__class__:
             return self.level < other.level
-        raise NotImplemented
+        raise NotImplementedError
 
 
 project_tags_association = Table(

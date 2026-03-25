@@ -1,9 +1,10 @@
 import asyncio
+
 import uvicorn
 
-from auth_service.src.main import app
-from auth_service.src.infrastructure.config import settings
 from auth_service.src.grpc_main import serve_grpc
+from auth_service.src.infrastructure.config import settings
+from auth_service.src.main import app
 
 
 async def main():

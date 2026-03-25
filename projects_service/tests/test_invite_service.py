@@ -1,15 +1,11 @@
-import pytest
-from uuid import uuid4
 from unittest.mock import AsyncMock
+from uuid import uuid4
 
+import pytest
 from fastapi import HTTPException
 
 from projects_service.src.application.invite_service import InviteService
-from projects_service.src.infrastructure.models import (
-    StaffRole,
-    RequestStatus,
-    ProjectInviteType
-)
+from projects_service.src.infrastructure.models import ProjectInviteType, RequestStatus, StaffRole
 
 
 @pytest.fixture

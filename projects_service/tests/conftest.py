@@ -1,53 +1,32 @@
-import pytest
+import os
 from typing import AsyncGenerator
-from uuid import uuid4
 from unittest.mock import AsyncMock
+from uuid import uuid4
 
-from testcontainers.postgres import PostgresContainer
+import pytest
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from sqlalchemy.ext.asyncio import (
-    create_async_engine,
-    async_sessionmaker,
-    AsyncSession
-)
-
-from httpx import AsyncClient, ASGITransport
-
-from projects_service.src.main import app
-from projects_service.src.infrastructure.database import Base, get_async_session
-from projects_service.src.presentation.dependencies import (
-    get_project_service,
-    get_invite_service
-)
-
-from projects_service.src.application.projects_managing_service import ProjectService
 from projects_service.src.application.invite_service import InviteService
+from projects_service.src.application.projects_managing_service import ProjectService
+from projects_service.src.infrastructure.database import Base, get_async_session
 from projects_service.src.infrastructure.repositories.project_repository import ProjectRepository
+from projects_service.src.main import app
+from projects_service.src.presentation.dependencies import get_invite_service, get_project_service
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+engine = create_async_engine(DATABASE_URL, echo=False)
 
-@pytest.fixture(scope="session")
-def postgres_container():
-    with PostgresContainer("postgres:15-alpine") as postgres:
-        yield postgres
-
-
-@pytest.fixture(scope="session")
-async def db_engine(postgres_container):
-    url = postgres_container.get_connection_url().replace("psycopg2", "asyncpg")
-
-    engine = create_async_engine(url, echo=False)
+@pytest.fixture(scope="session", autouse=True)
+async def prepare_database():
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    yield engine
-
-    await engine.dispose()
-
 
 @pytest.fixture
-async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
-    connection = await db_engine.connect()
+async def db_session() -> AsyncGenerator[AsyncSession, None]:
+    connection = await engine.connect()
     transaction = await connection.begin()
 
     SessionLocal = async_sessionmaker(
@@ -122,7 +101,6 @@ def another_user_id():
 
 @pytest.fixture(autouse=True)
 def mock_auth(monkeypatch, user_id):
-    from projects_service.src.presentation.dependencies import get_current_user_id, get_optional_user_id
 
     monkeypatch.setattr(
         "projects_service.src.presentation.dependencies.get_current_user_id",

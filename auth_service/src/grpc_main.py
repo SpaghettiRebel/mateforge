@@ -1,5 +1,7 @@
 import asyncio
+
 import grpc
+
 from auth_service.src.infrastructure.generated import users_pb2_grpc
 from auth_service.src.presentation.grpc_handler import UsersServicer
 

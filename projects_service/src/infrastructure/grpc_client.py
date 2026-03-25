@@ -1,7 +1,10 @@
-import grpc
-from uuid import UUID
 from typing import Optional
+from uuid import UUID
+
+import grpc
+
 from .generated import users_pb2, users_pb2_grpc
+
 
 class UsersGrpcClient:
     def __init__(self, host: str, port: int):

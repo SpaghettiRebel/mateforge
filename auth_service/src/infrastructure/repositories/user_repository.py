@@ -1,11 +1,12 @@
 from typing import List
 from uuid import UUID, uuid4
-from sqlalchemy import select, delete
+
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_service.src.infrastructure.models import UserDB, Subscription
-from auth_service.src.presentation.schemas import UserCreate
 from auth_service.src.infrastructure.exceptions import UserDoesNotExist
+from auth_service.src.infrastructure.models import Subscription, UserDB
+from auth_service.src.presentation.schemas import UserCreate
 
 
 class UserRepository:

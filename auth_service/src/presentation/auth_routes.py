@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, BackgroundTasks, Header, Body
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, Header
 from fastapi.security import OAuth2PasswordRequestForm
-from auth_service.src.presentation.schemas import UserCreate, UserRead, Token, UserData
+
 from auth_service.src.application.login_service import AuthService
-from auth_service.src.presentation.dependencies import get_service, get_current_user
+from auth_service.src.presentation.dependencies import get_current_user, get_service
+from auth_service.src.presentation.schemas import Token, UserCreate, UserData, UserRead
 
 router = APIRouter()
 

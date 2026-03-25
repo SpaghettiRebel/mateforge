@@ -1,9 +1,12 @@
 import uuid
 from datetime import datetime
 from enum import IntEnum
-from sqlalchemy import func, ForeignKey, select, String, Integer
-from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
+
+from sqlalchemy import ForeignKey, Integer, String, func, select
+from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
+
 from auth_service.src.infrastructure.database import Base
+
 
 class SkillLevel(IntEnum):
     BEGINNER = 1
@@ -39,7 +42,7 @@ class Skill(Base):
 
     group: Mapped[str] = mapped_column(String(30), default="hard-skill", index=True)
 
-    users: Mapped[list["User"]] = relationship(
+    users: Mapped[list["UserDB"]] = relationship(
         secondary="user_skills", back_populates="skills", viewonly=True
     )
 

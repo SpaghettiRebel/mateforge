@@ -1,9 +1,11 @@
 from uuid import UUID
+
 from fastapi import HTTPException, status
 
 from projects_service.src.infrastructure.generated import users_pb2
-from projects_service.src.infrastructure.models import StaffRole, RequestStatus, ProjectInviteType
+from projects_service.src.infrastructure.models import ProjectInviteType, RequestStatus, StaffRole
 from projects_service.src.infrastructure.repositories.project_repository import ProjectRepository
+
 
 class InviteService:
     def __init__(self, project_repository: ProjectRepository):
@@ -83,11 +85,11 @@ class InviteService:
                 )
         except HTTPException:
             raise
-        except Exception as e:
+        except Exception:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Auth service is unavailable for user verification"
-            )
+            ) from None
 
         existing_staff = await self.repository.get_user_role(project_id, invitation.user_id)
         if existing_staff:
@@ -105,7 +107,7 @@ class InviteService:
             invitation.status = RequestStatus.ACCEPTED
 
             await self.repository.session.commit()
-        except:
+        except Exception as e:
             await self.repository.session.rollback()
             raise e
 
@@ -135,7 +137,7 @@ class InviteService:
         if invite.status != RequestStatus.PENDING:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid invitation status"
+                detail="Invalid invitation status"
             )
 
         existing_staff = await self.repository.get_user_role(project_id, current_user_id)
@@ -154,12 +156,12 @@ class InviteService:
             invite.status = RequestStatus.ACCEPTED
 
             await self.repository.session.commit()
-        except:
+        except Exception:
             await self.repository.session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to process the invitation. Please try again."
-            )
+            ) from None
 
         return {"detail": "You have successfully joined the project"}
 
@@ -182,9 +184,9 @@ class InviteService:
             invite.status = RequestStatus.REJECTED
             await self.repository.session.commit()
             return {"detail": "Invite rejected successfully"}
-        except:
+        except Exception:
             await self.repository.session.rollback()
-            raise HTTPException(status_code=500, detail="Database error")
+            raise HTTPException(status_code=500, detail="Database error") from None
 
     async def reject_join_request(self, project_id: UUID, request_id: UUID, current_user_id: UUID):
         current_user_role = await self.repository.get_user_role(project_id, current_user_id)
@@ -206,8 +208,8 @@ class InviteService:
         try:
             join_request.status = RequestStatus.REJECTED
             await self.repository.session.commit()
-        except:
+        except Exception:
             await self.repository.session.rollback()
-            raise HTTPException(status_code=500, detail="Internal server error")
+            raise HTTPException(status_code=500, detail="Internal server error") from None
 
         return {"detail": "Join request rejected"}

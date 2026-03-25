@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
+
 from pydantic import BaseModel
 
 from projects_service.src.infrastructure.models import StaffRole

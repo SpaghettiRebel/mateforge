@@ -1,10 +1,17 @@
-from typing import Tuple, List
+from typing import List, Tuple
 from uuid import UUID
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
 
-from projects_service.src.infrastructure.models import Project, Staff, StaffRole, ProjectInvitation, ProjectInviteType, \
-    RequestStatus
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from projects_service.src.infrastructure.models import (
+    Project,
+    ProjectInvitation,
+    ProjectInviteType,
+    RequestStatus,
+    Staff,
+    StaffRole,
+)
 from projects_service.src.presentation.schemas import ProjectCreateSchema, ProjectUpdateSchema
 
 

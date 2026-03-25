@@ -1,10 +1,11 @@
 from typing import List
-from fastapi import APIRouter, Depends, Body
 from uuid import UUID
 
-from auth_service.src.presentation.schemas import UserRead, UserData
+from fastapi import APIRouter, Body, Depends
+
 from auth_service.src.application.user_service import UserService
-from auth_service.src.presentation.dependencies import get_service, get_current_user
+from auth_service.src.presentation.dependencies import get_current_user, get_service
+from auth_service.src.presentation.schemas import UserData, UserRead
 
 router = APIRouter()
 

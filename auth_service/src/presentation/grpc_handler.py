@@ -1,8 +1,9 @@
 import grpc
 from sqlalchemy import select
+
 from auth_service.src.infrastructure.database import async_session_factory
-from auth_service.src.infrastructure.models import UserDB
 from auth_service.src.infrastructure.generated import users_pb2, users_pb2_grpc
+from auth_service.src.infrastructure.models import UserDB
 
 
 class UsersServicer(users_pb2_grpc.UsersExternalServicer):

@@ -1,14 +1,24 @@
-from fastapi import APIRouter, Depends, Query, Request
+from typing import List, Union
 from uuid import UUID
-from typing import Union, List
 
-from projects_service.src.application.projects_managing_service import ProjectService
+from fastapi import APIRouter, Depends, Request
+
 from projects_service.src.application.invite_service import InviteService
+from projects_service.src.application.projects_managing_service import ProjectService
 from projects_service.src.infrastructure.models import StaffRole
-from projects_service.src.presentation.dependencies import (get_current_user_id, get_optional_user_id,
-                                                            get_project_service, get_invite_service)
-from projects_service.src.presentation.schemas import (ProjectCreateSchema, ProjectPublicSchema, ProjectFullSchema,
-                                                       ProjectUpdateSchema, ProjectStaffSchema)
+from projects_service.src.presentation.dependencies import (
+    get_current_user_id,
+    get_invite_service,
+    get_optional_user_id,
+    get_project_service,
+)
+from projects_service.src.presentation.schemas import (
+    ProjectCreateSchema,
+    ProjectFullSchema,
+    ProjectPublicSchema,
+    ProjectStaffSchema,
+    ProjectUpdateSchema,
+)
 
 router = APIRouter()
 

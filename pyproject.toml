@@ -1,0 +1,33 @@
+[tool.ruff]
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "**/migrations/*.py",
+    "**/protos/*.py",
+    "*_pb2.py",
+    "*_pb2_grpc.py",
+]
+
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Header",
+    "fastapi.Body",
+    "projects_service.src.presentation.dependencies.get_service", # Твои кастомные зависимости тоже сюда
+    "auth_service.src.presentation.dependencies.get_service"
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*" = ["S101", "B904"]

@@ -1,56 +1,31 @@
-import pytest
-from unittest.mock import AsyncMock
+import os
 from typing import AsyncGenerator
-from testcontainers.postgres import PostgresContainer
-from testcontainers.redis import RedisContainer
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from redis.asyncio import Redis
-from httpx import AsyncClient, ASGITransport
+from unittest.mock import AsyncMock
 
-from auth_service.src.main import app
+import pytest
+from httpx import ASGITransport, AsyncClient
+from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from auth_service.src.infrastructure.database import Base, get_async_session
 from auth_service.src.infrastructure.redis import get_redis_client
+from auth_service.src.main import app
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+REDIS_URL = os.getenv("REDIS_URL")
+
+engine = create_async_engine(DATABASE_URL, echo=False)
 
 
-@pytest.fixture(scope="session")
-def postgres_container():
-    with PostgresContainer("postgres:15-alpine") as postgres:
-        yield postgres
-
-
-@pytest.fixture(scope="session")
-def redis_container():
-    with RedisContainer("redis:7-alpine") as redis:
-        yield redis
-
-
-@pytest.fixture(scope="session")
-async def db_engine(postgres_container):
-    url = postgres_container.get_connection_url().replace("psycopg2", "asyncpg")
-
-    engine = create_async_engine(url, echo=False)
-
+@pytest.fixture(scope="session", autouse=True)
+async def prepare_database():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    yield engine
-
-    await engine.dispose()
-
-
-@pytest.fixture(scope="session")
-async def redis_client_session(redis_container):
-    port = redis_container.get_exposed_port(6379)
-    host = redis_container.get_container_host_ip()
-
-    client = Redis(host=host, port=port, decode_responses=True)
-    yield client
-    await client.aclose()
-
 
 @pytest.fixture
-async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
-    connection = await db_engine.connect()
+async def db_session() -> AsyncGenerator[AsyncSession, None]:
+    connection = await engine.connect()
     transaction = await connection.begin()
 
     SessionLocal = async_sessionmaker(
@@ -66,6 +41,13 @@ async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
     await connection.close()
 
 
+@pytest.fixture(scope="session")
+async def redis_client_session():
+    client = Redis.from_url(REDIS_URL, decode_responses=True)
+    yield client
+    await client.aclose()
+
+
 @pytest.fixture
 async def redis_client(redis_client_session):
     yield redis_client_session
@@ -78,12 +60,13 @@ async def client(db_session, redis_client) -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides[get_redis_client] = lambda: redis_client
 
     async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://test"
+        transport=ASGITransport(app=app),
+        base_url="http://test"
     ) as ac:
         yield ac
 
     app.dependency_overrides.clear()
+
 
 @pytest.fixture(autouse=True)
 def mock_email_client(monkeypatch):
@@ -94,7 +77,9 @@ def mock_email_client(monkeypatch):
 async def clear_data(db_session, redis_client):
     yield
     from sqlalchemy import delete
-    from auth_service.src.infrastructure.models import UserDB  # импортируй свою модель
+
+    from auth_service.src.infrastructure.models import UserDB
+
     await db_session.execute(delete(UserDB))
     await db_session.commit()
     await redis_client.flushall()
@@ -111,9 +96,13 @@ async def verified_user(client, db_session):
     await client.post("/auth/register", json={**payload, "fingerprint": "test_fp"})
 
     from sqlalchemy import select
+
     from auth_service.src.infrastructure.models import UserDB
+
     stmt = select(UserDB).where(UserDB.email == payload["email"])
     user = (await db_session.execute(stmt)).scalar_one()
+
     user.is_verified = True
     await db_session.commit()
+
     return payload, user.id

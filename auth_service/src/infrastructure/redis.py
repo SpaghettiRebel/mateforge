@@ -1,4 +1,5 @@
-from redis.asyncio import Redis, ConnectionPool
+from redis.asyncio import ConnectionPool, Redis
+
 from auth_service.src.infrastructure.config import settings
 
 pool = ConnectionPool.from_url(

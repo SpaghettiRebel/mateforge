@@ -1,4 +1,5 @@
 from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
+
 from auth_service.src.infrastructure.config import settings
 
 conf = ConnectionConfig(

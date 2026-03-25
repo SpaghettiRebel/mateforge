@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 from auth_service.src.infrastructure.database import Base
-from auth_service.src.infrastructure.models import UserDB, Subscription
 from auth_service.src.infrastructure.config import settings
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))

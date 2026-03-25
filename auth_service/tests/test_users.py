@@ -1,5 +1,6 @@
 import pytest
 
+
 @pytest.mark.asyncio
 async def test_user_social_logic(client, verified_user, db_session):
     user1_data, user1_id = verified_user
@@ -8,7 +9,8 @@ async def test_user_social_logic(client, verified_user, db_session):
     user2_payload = {"email": "user2@test.com", "username": "user2", "password": "Strong_password-33"}
     await client.post("/auth/register", json=user2_payload)
 
-    from sqlalchemy import select, update
+    from sqlalchemy import select
+
     from auth_service.src.infrastructure.models import UserDB
     user2 = (await db_session.execute(select(UserDB).where(UserDB.email == "user2@test.com"))).scalar_one()
     user2.is_verified = True

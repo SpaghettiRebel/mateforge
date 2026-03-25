@@ -1,9 +1,10 @@
-import grpc
 from contextlib import asynccontextmanager
+
+import grpc
 from fastapi import FastAPI
 
-from projects_service.src.presentation.routes import router as projects_router
 from projects_service.src.infrastructure.generated import users_pb2_grpc
+from projects_service.src.presentation.routes import router as projects_router
 
 
 @asynccontextmanager
