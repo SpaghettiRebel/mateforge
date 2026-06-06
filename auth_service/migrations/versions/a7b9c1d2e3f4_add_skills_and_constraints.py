@@ -18,33 +18,51 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_check_constraint(
-        "ck_subscriptions_not_self",
-        "subscriptions",
-        "subscriber_id <> author_id",
-    )
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
 
-    op.create_table(
-        "skills",
-        sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column("name", sa.String(length=50), nullable=False),
-        sa.Column("slug", sa.String(length=50), nullable=False),
-        sa.Column("group", sa.String(length=30), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(op.f("ix_skills_group"), "skills", ["group"], unique=False)
-    op.create_index(op.f("ix_skills_name"), "skills", ["name"], unique=True)
-    op.create_index(op.f("ix_skills_slug"), "skills", ["slug"], unique=True)
+    subscription_checks = {
+        item["name"]
+        for item in inspector.get_check_constraints("subscriptions")
+    }
+    if "ck_subscriptions_not_self" not in subscription_checks:
+        op.create_check_constraint(
+            "ck_subscriptions_not_self",
+            "subscriptions",
+            "subscriber_id <> author_id",
+        )
 
-    op.create_table(
-        "user_skills",
-        sa.Column("user_id", sa.Uuid(), nullable=False),
-        sa.Column("skill_id", sa.Uuid(), nullable=False),
-        sa.Column("level", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(["skill_id"], ["skills.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("user_id", "skill_id"),
-    )
+    if not inspector.has_table("skills"):
+        op.create_table(
+            "skills",
+            sa.Column("id", sa.Uuid(), nullable=False),
+            sa.Column("name", sa.String(length=50), nullable=False),
+            sa.Column("slug", sa.String(length=50), nullable=False),
+            sa.Column("group", sa.String(length=30), nullable=False),
+            sa.PrimaryKeyConstraint("id"),
+        )
+
+    skill_indexes = {
+        item["name"]
+        for item in sa.inspect(bind).get_indexes("skills")
+    }
+    if op.f("ix_skills_group") not in skill_indexes:
+        op.create_index(op.f("ix_skills_group"), "skills", ["group"], unique=False)
+    if op.f("ix_skills_name") not in skill_indexes:
+        op.create_index(op.f("ix_skills_name"), "skills", ["name"], unique=True)
+    if op.f("ix_skills_slug") not in skill_indexes:
+        op.create_index(op.f("ix_skills_slug"), "skills", ["slug"], unique=True)
+
+    if not sa.inspect(bind).has_table("user_skills"):
+        op.create_table(
+            "user_skills",
+            sa.Column("user_id", sa.Uuid(), nullable=False),
+            sa.Column("skill_id", sa.Uuid(), nullable=False),
+            sa.Column("level", sa.Integer(), nullable=False),
+            sa.ForeignKeyConstraint(["skill_id"], ["skills.id"], ondelete="CASCADE"),
+            sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+            sa.PrimaryKeyConstraint("user_id", "skill_id"),
+        )
 
 
 def downgrade() -> None:
