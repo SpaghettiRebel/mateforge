@@ -1,9 +1,16 @@
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, Header
+from fastapi import APIRouter, BackgroundTasks, Depends, Header
 from fastapi.security import OAuth2PasswordRequestForm
 
 from auth_service.src.application.login_service import AuthService
 from auth_service.src.presentation.dependencies import get_current_user, get_service
-from auth_service.src.presentation.schemas import Token, UserCreate, UserData, UserRead
+from auth_service.src.presentation.schemas import (
+    LogoutRequest,
+    RefreshTokenRequest,
+    Token,
+    UserCreate,
+    UserData,
+    UserRead,
+)
 
 router = APIRouter()
 
@@ -20,23 +27,28 @@ async def register(
 @router.post("/login", response_model=Token)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
+    client_fingerprint: str | None = Header(default=None, alias="X-Client-Fingerprint"),
     user_agent: str | None = Header(default=None, alias="User-Agent"),
     auth_service: AuthService = Depends(get_service('auth'))
 ):
     return await auth_service.authenticate_user(
         email=form_data.username,
         password=form_data.password,
-        fingerprint=user_agent
+        fingerprint=client_fingerprint or user_agent
     )
 
 
-@router.post("/refresh")
+@router.post("/refresh", response_model=Token)
 async def refresh(
-    refresh_token: str = Body(embed=True),
+    payload: RefreshTokenRequest,
+    client_fingerprint: str | None = Header(default=None, alias="X-Client-Fingerprint"),
     user_agent: str | None = Header(default=None, alias="User-Agent"),
     auth_service: AuthService = Depends(get_service('auth'))
 ):
-    return await auth_service.refresh_session(refresh_token, fingerprint=user_agent)
+    return await auth_service.refresh_session(
+        payload.refresh_token,
+        fingerprint=client_fingerprint or user_agent,
+    )
 
 
 @router.get("/verify")
@@ -49,11 +61,11 @@ async def verify(
 
 @router.delete("/logout")
 async def logout(
-    refresh_token: str,
+    payload: LogoutRequest,
     current_user: UserData = Depends(get_current_user),
     auth_service: AuthService = Depends(get_service('auth'))
 ):
-    return await auth_service.logout(refresh_token, current_user.id)
+    return await auth_service.logout(payload.refresh_token, current_user.id)
 
 @router.delete("/logout-all")
 async def logout_all(

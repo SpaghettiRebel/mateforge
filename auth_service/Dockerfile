@@ -17,6 +17,7 @@ RUN sed -i 's/import users_pb2 as users__pb2/from . import users_pb2 as users__p
 FROM python:3.12-slim
 
 WORKDIR /app
+RUN adduser --disabled-password --gecos "" appuser
 
 COPY auth_service/requirements.txt .
 RUN python3 -m pip install --upgrade pip && \
@@ -28,6 +29,9 @@ COPY auth_service/ /app/auth_service/
 
 ENV PYTHONPATH=/app
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+USER appuser
 
 EXPOSE 8000
 EXPOSE 50051

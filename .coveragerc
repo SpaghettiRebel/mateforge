@@ -1,0 +1,9 @@
+[run]
+omit =
+    */generated/*
+    */migrations/*
+    */tests/*
+
+[report]
+show_missing = True
+skip_empty = True

@@ -1,8 +1,9 @@
-from typing import List, Tuple
+from typing import List
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, false, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from projects_service.src.infrastructure.models import (
     Project,
@@ -53,11 +54,21 @@ class ProjectRepository:
 
         return project
 
-    async def get_by_id(self, project_id: UUID) -> Project | None:
-        project = await self.session.get(Project, project_id)
-        return project
+    async def commit(self) -> None:
+        await self.session.commit()
 
-    async def get_user_role(self, project_id: UUID, user_id: UUID) -> str | None:
+    async def rollback(self) -> None:
+        await self.session.rollback()
+
+    async def refresh(self, instance) -> None:
+        await self.session.refresh(instance)
+
+    async def get_by_id(self, project_id: UUID) -> Project | None:
+        query = select(Project).options(selectinload(Project.tags)).where(Project.id == project_id)
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+
+    async def get_user_role(self, project_id: UUID, user_id: UUID) -> StaffRole | None:
         query = select(Staff).where(
             Staff.project_id == project_id,
             Staff.user_id == user_id
@@ -67,14 +78,18 @@ class ProjectRepository:
         staff_member = result.scalar_one_or_none()
 
         if staff_member:
-            return staff_member.role
+            return StaffRole(staff_member.role)
         return None
 
     async def delete(self, project_id) -> None:
         query = delete(Project).where(Project.id == project_id)
         await self.session.execute(query)
 
-    async def get_projects_with_staff_flag(self, target_user_id: UUID, current_user_id: UUID | None) -> Tuple[Project, bool]:
+    async def get_projects_with_staff_flag(
+        self,
+        target_user_id: UUID,
+        current_user_id: UUID | None,
+    ) -> list[tuple[Project, bool]]:
         query = select(Project).where(Project.founder_id == target_user_id)
 
         if current_user_id:
@@ -84,6 +99,8 @@ class ProjectRepository:
                 .exists()
             ).label("is_staff")
             query = query.add_columns(is_staff_subquery)
+        else:
+            query = query.add_columns(false().label("is_staff"))
 
         result = await self.session.execute(query)
         return result.all()
@@ -94,8 +111,7 @@ class ProjectRepository:
         for key, value in update_data.items():
             setattr(project, key, value)
 
-        await self.session.commit()
-        await self.session.refresh(project)
+        await self.session.flush()
 
         return project
 
@@ -150,6 +166,23 @@ class ProjectRepository:
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
+    async def get_invitations_by_user_id(self, user_id: UUID, invite_type: ProjectInviteType = None) -> List[ProjectInvitation] | None:
+        if invite_type:
+            query = (
+                select(ProjectInvitation)
+                .where(ProjectInvitation.user_id == user_id, ProjectInvitation.type == invite_type)
+                .order_by(ProjectInvitation.created_at.desc(), ProjectInvitation.id)
+            )
+        else:
+            query = (
+                select(ProjectInvitation)
+                .where(ProjectInvitation.user_id == user_id)
+                .order_by(ProjectInvitation.created_at.desc(), ProjectInvitation.id)
+            )
+
+        result = await self.session.execute(query)
+        return result.scalars().all()
+
     async def add_to_staff(
             self,
             project_id: UUID,
@@ -176,10 +209,11 @@ class ProjectRepository:
     ) -> None:
         query = select(Staff).where(Staff.project_id == project_id, Staff.user_id == user_id)
         member = await self.session.execute(query)
-
-        member.role = new_role
-
-        await self.session.commit()
+        staff_member = member.scalar_one_or_none()
+        if staff_member is None:
+            return
+        staff_member.role = new_role.value
+        await self.session.flush()
 
     async def get_staff(self, project_id: UUID) -> List[Staff]:
         query = select(Staff).where(Staff.project_id == project_id)

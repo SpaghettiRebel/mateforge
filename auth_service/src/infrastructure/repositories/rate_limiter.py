@@ -3,6 +3,14 @@ from redis.asyncio import Redis
 
 
 class RateLimiter:
+    _INCREMENT_SCRIPT = """
+    local count = redis.call('INCR', KEYS[1])
+    if count == 1 then
+        redis.call('EXPIRE', KEYS[1], ARGV[1])
+    end
+    return {count, redis.call('TTL', KEYS[1])}
+    """
+
     def __init__(self, redis: Redis):
         self.redis = redis
 
@@ -18,17 +26,15 @@ class RateLimiter:
                 detail=f"Too many attempts. Try again in {ttl} seconds."
             )
 
-    async def increment(self, key: str, window_seconds: int):
+    async def increment(self, key: str, window_seconds: int) -> tuple[int, int]:
         redis_key = f"limiter:{key}"
-
-        async with self.redis.pipeline() as pipe:
-            await pipe.incr(redis_key)
-
-            current_ttl = await self.redis.ttl(redis_key)
-            if current_ttl == -1 or current_ttl == -2:  # Ключа нет или нет TTL
-                await pipe.expire(redis_key, window_seconds)
-
-            await pipe.execute()
+        count, ttl = await self.redis.eval(
+            self._INCREMENT_SCRIPT,
+            1,
+            redis_key,
+            window_seconds,
+        )
+        return int(count), int(ttl)
 
     async def reset(self, key: str):
         redis_key = f"limiter:{key}"

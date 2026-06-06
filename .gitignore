@@ -4,6 +4,7 @@ __pycache__/
 .Python
 myenv/
 venv/
+.venv/
 ENV/
 env/
 
@@ -11,6 +12,10 @@ auth_service/.env
 projects_service/.env
 portfolio_service/.env
 .env.local
+
+.coverage
+coverage.xml
+htmlcov/
 
 .vscode/
 

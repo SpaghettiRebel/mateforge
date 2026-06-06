@@ -8,7 +8,13 @@ from projects_service.src.infrastructure.exceptions import TokenExpiredError, To
 
 def decode_access_token(token: str, token_type: str) -> UUID | None:
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        payload = jwt.decode(
+            token,
+            settings.JWT_SECRET,
+            algorithms=[settings.JWT_ALGORITHM],
+            audience=settings.JWT_AUDIENCE,
+            issuer=settings.JWT_ISSUER,
+        )
         if payload.get("type") != token_type:
             raise TokenInvalidError("Invalid token type")
 

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import Column, ForeignKey, String, Table, UniqueConstraint, func
+from sqlalchemy import Column, ForeignKey, Index, String, Table, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from projects_service.src.infrastructure.database import Base
@@ -108,9 +108,12 @@ class ProjectInvitation(Base):
     project: Mapped["Project"] = relationship(back_populates="invitations")
 
     __table_args__ = (
-        UniqueConstraint(
-            'project_id', 'user_id', 'type', 'status',
-            name='uix_project_user_type_status'
+        Index(
+            "uq_pending_project_invitation",
+            "project_id",
+            "user_id",
+            unique=True,
+            postgresql_where=text("status = 'PENDING'"),
         ),
     )
 

@@ -18,7 +18,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - name: Install Ruff
         run: pip install ruff
       - name: Run Ruff Check
@@ -63,7 +63,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: 'pip'
 
       - name: Install dependencies
@@ -83,14 +83,19 @@ jobs:
           DB_NAME: test_db
           REDIS_HOST: localhost
           REDIS_PORT: 6379
-          JWT_SECRET: "test_secret_key_for_ci_only"
+          JWT_SECRET: "test_secret_key_for_ci_only_change_me_123456"
+          JWT_ISSUER: "mateforge-auth"
+          JWT_AUDIENCE: "mateforge-api"
           MAIL_USERNAME: "test@example.com"
           MAIL_PASSWORD: "password"
           MAIL_FROM: "test@example.com"
-          DATABASE_URL: postgresql+asyncpg://postgres:password@localhost:5432/test_db
-          REDIS_URL: redis://localhost:6379/0
+          PUBLIC_APP_URL: "http://testserver"
+          GRPC_SERVICE_TOKEN: "test_grpc_service_token_for_ci_only_123456"
           PYTHONPATH: ${{ github.workspace }}
-          USERS_SERVICE_URL: "http://auth_service:8000"
+          USERS_SERVICE_URL: "http://localhost:8000"
+          AUTH_GRPC_HOST: "localhost"
+          AUTH_GRPC_PORT: 50051
         run: |
           cd ${{ matrix.service }}
-          pytest tests/
+          python -m alembic upgrade head
+          pytest tests/ --cov=${{ matrix.service }}.src --cov-config=../.coveragerc --cov-report=term-missing

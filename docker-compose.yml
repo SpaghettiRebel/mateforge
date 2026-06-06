@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: auth_db
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - auth_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,7 +20,7 @@ services:
     image: redis:7-alpine
     restart: always
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
@@ -35,7 +35,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: projects_db
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - projects_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -48,7 +48,7 @@ services:
     image: redis:7-alpine
     restart: always
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
@@ -61,7 +61,6 @@ services:
       dockerfile: auth_service/Dockerfile
     ports:
       - "8000:8000"
-      - "50051:50051"
     volumes:
       - ./auth_service:/app/auth_service
       - /app/auth_service/src/infrastructure/generated
@@ -98,7 +97,18 @@ services:
         condition: service_healthy
     command: >
       sh -c "python3 -m alembic upgrade head &&
-             python -m uvicorn projects_service.src.main:app --host 0.0.0.0 --port 8001 --reload"
+             python -m uvicorn projects_service.src.main:app --host 0.0.0.0 --port 8001"
+
+  portfolio_service:
+    build:
+      context: .
+      dockerfile: portfolio_service/Dockerfile
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./portfolio_service:/app/portfolio_service
+    command: >
+      sh -c "python -m uvicorn portfolio_service.src.main:app --host 0.0.0.0 --port 8002"
 
 volumes:
   auth_postgres_data:

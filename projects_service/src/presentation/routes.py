@@ -1,7 +1,7 @@
 from typing import List, Union
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query
 
 from projects_service.src.application.invite_service import InviteService
 from projects_service.src.application.projects_managing_service import ProjectService
@@ -24,14 +24,14 @@ router = APIRouter()
 
 @router.post('/{project_id}/invite', status_code=201)
 async def send_invite_to_project(
-        target_user_id: UUID,
         project_id: UUID,
+        target_user_id: UUID = Query(...),
         current_user_id: UUID = Depends(get_current_user_id),
         service: InviteService = Depends(get_invite_service),
 ):
     return await service.send_invite(project_id, target_user_id, current_user_id)
 
-@router.post('/{project_id}/invite/{invite_id}/accept', status_code=201)
+@router.post('/{project_id}/invite/{invite_id}/accept')
 async def accept_invite_to_project(
         project_id: UUID,
         invite_id: UUID,
@@ -40,7 +40,7 @@ async def accept_invite_to_project(
 ):
     return await service.accept_invite_to_join(project_id, invite_id, current_user_id)
 
-@router.post('/{project_id}/invite/{invite_id}/reject', status_code=201)
+@router.post('/{project_id}/invite/{invite_id}/reject')
 async def reject_invite_to_project(
         project_id: UUID,
         invite_id: UUID,
@@ -57,19 +57,16 @@ async def send_request_to_project(
 ):
     return await service.send_join_request(project_id, current_user_id)
 
-@router.post('/{project_id}/request/{request_id}/accept', status_code=201)
+@router.post('/{project_id}/request/{request_id}/accept')
 async def accept_request_to_project(
         project_id: UUID,
         request_id: UUID,
-        request: Request,
         current_user_id: UUID = Depends(get_current_user_id),
         service: InviteService = Depends(get_invite_service),
 ):
-    grpc_client = request.app.state.grpc_client
+    return await service.accept_join_request(project_id, request_id, current_user_id)
 
-    return await service.accept_join_request(project_id, request_id, current_user_id, grpc_client)
-
-@router.post('/{project_id}/request/{request_id}/reject', status_code=201)
+@router.post('/{project_id}/request/{request_id}/reject')
 async def reject_request_to_project(
         project_id: UUID,
         request_id: UUID,
@@ -77,6 +74,20 @@ async def reject_request_to_project(
         service: InviteService = Depends(get_invite_service),
 ):
     return await service.reject_join_request(project_id, request_id, current_user_id)
+
+@router.get('/invite/all')
+async def get_user_invites(
+        current_user_id: UUID = Depends(get_current_user_id),
+        service: InviteService = Depends(get_invite_service),
+):
+    return await service.get_user_invites(current_user_id)
+
+@router.get('/request/all')
+async def get_user_requests(
+        current_user_id: UUID = Depends(get_current_user_id),
+        service: InviteService = Depends(get_invite_service),
+):
+    return await service.get_user_requests(current_user_id)
 
 @router.patch('/{project_id}', response_model=ProjectFullSchema)
 async def update_project(
@@ -129,7 +140,7 @@ async def kick_member_out(
         current_user_id: UUID = Depends(get_current_user_id),
         service: ProjectService = Depends(get_project_service),
 ):
-    return await service.delete_member_from_project(project_id, user_id, current_user_id)
+    return await service.delete_member_from_project(project_id, target_user_id=user_id, current_user_id=current_user_id)
 
 @router.patch('/{project_id}/staff/{user_id}')
 async def change_member_role(

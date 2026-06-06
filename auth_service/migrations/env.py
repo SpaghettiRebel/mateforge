@@ -10,10 +10,11 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-from auth_service.src.infrastructure.database import Base
-from auth_service.src.infrastructure.config import settings
+sys.path.insert(0, dirname(dirname(dirname(abspath(__file__)))))
 
-sys.path.insert(0, dirname(dirname(abspath(__file__))))
+from auth_service.src.infrastructure.config import settings
+from auth_service.src.infrastructure.database import Base
+from auth_service.src.infrastructure import models as auth_models  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

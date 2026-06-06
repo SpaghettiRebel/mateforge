@@ -10,3 +10,7 @@ pool = ConnectionPool.from_url(
 
 def get_redis_client() -> Redis:
     return Redis(connection_pool=pool)
+
+
+async def close_redis_pool() -> None:
+    await pool.disconnect()

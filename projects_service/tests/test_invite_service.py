@@ -1,130 +1,156 @@
-from unittest.mock import AsyncMock
-from uuid import uuid4
+from uuid import UUID
 
 import pytest
-from fastapi import HTTPException
+from sqlalchemy import select
 
-from projects_service.src.application.invite_service import InviteService
-from projects_service.src.infrastructure.models import ProjectInviteType, RequestStatus, StaffRole
-
-
-@pytest.fixture
-def repo_mock():
-    return AsyncMock()
-
-
-@pytest.fixture
-def service(repo_mock):
-    return InviteService(repo_mock)
+from projects_service.src.infrastructure.models import ProjectInvitation, RequestStatus, Staff, StaffRole
+from projects_service.tests.helpers import create_project
 
 
 @pytest.mark.asyncio
-async def test_send_invite_forbidden(service, repo_mock):
-    repo_mock.get_user_role.return_value = StaffRole.PARTICIPANT
+async def test_send_invite_checks_target_user_exists(client, users_gateway, another_user_id):
+    project = await create_project(client)
+    users_gateway.existing_users.remove(another_user_id)
 
-    with pytest.raises(HTTPException) as exc:
-        await service.send_invite(uuid4(), uuid4(), uuid4())
-
-    assert exc.value.status_code == 403
-
-
-@pytest.mark.asyncio
-async def test_send_invite_already_exists(service, repo_mock):
-    repo_mock.get_user_role.side_effect = [
-        StaffRole.ADMIN,
-        None
-    ]
-    repo_mock.exists_invite_or_request.return_value = True
-
-    with pytest.raises(HTTPException) as exc:
-        await service.send_invite(uuid4(), uuid4(), uuid4())
-
-    assert exc.value.status_code == 409
-
-
-@pytest.mark.asyncio
-async def test_send_invite_success(service, repo_mock):
-    repo_mock.get_user_role.side_effect = [
-        StaffRole.ADMIN,
-        None
-    ]
-    repo_mock.exists_invite_or_request.return_value = False
-
-    await service.send_invite(uuid4(), uuid4(), uuid4())
-
-    repo_mock.add_invite.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_join_request_already_member(service, repo_mock):
-    repo_mock.get_user_role.return_value = StaffRole.ADMIN
-
-    with pytest.raises(HTTPException) as exc:
-        await service.send_join_request(uuid4(), uuid4())
-
-    assert exc.value.status_code == 409
-
-
-@pytest.mark.asyncio
-async def test_join_request_success(service, repo_mock):
-    repo_mock.get_user_role.return_value = None
-    repo_mock.exists_invite_or_request.return_value = False
-    repo_mock.add_request.return_value = uuid4()
-
-    result = await service.send_join_request(uuid4(), uuid4())
-
-    assert "request_id" in result
-
-
-@pytest.mark.asyncio
-async def test_accept_invite_wrong_user(service, repo_mock):
-    invite = AsyncMock(
-        type=ProjectInviteType.INVITE,
-        project_id=uuid4(),
-        target_user_id=uuid4(),
-        status=RequestStatus.PENDING
+    response = await client.post(
+        f"/projects/{project['id']}/invite",
+        params={"target_user_id": str(another_user_id)},
     )
 
-    repo_mock.get_invitation_by_id.return_value = invite
-
-    with pytest.raises(HTTPException) as exc:
-        await service.accept_invite_to_join(
-            invite.project_id,
-            uuid4(),
-            uuid4()
-        )
-
-    assert exc.value.status_code == 403
+    assert response.status_code == 404
+    assert response.json()["detail"] == "User not found"
+    assert users_gateway.calls == [another_user_id]
 
 
 @pytest.mark.asyncio
-async def test_accept_invite_success(service, repo_mock):
-    user_id = uuid4()
+async def test_send_invite_returns_503_when_auth_gateway_is_unavailable(client, users_gateway, another_user_id):
+    project = await create_project(client)
+    users_gateway.unavailable = True
 
-    invite = AsyncMock(
-        type=ProjectInviteType.INVITE,
-        project_id=uuid4(),
-        target_user_id=user_id,
-        status=RequestStatus.PENDING
+    response = await client.post(
+        f"/projects/{project['id']}/invite",
+        params={"target_user_id": str(another_user_id)},
     )
 
-    repo_mock.get_invitation_by_id.return_value = invite
-    repo_mock.get_user_role.return_value = None
-
-    result = await service.accept_invite_to_join(
-        invite.project_id,
-        uuid4(),
-        user_id
-    )
-
-    assert "joined" in result["detail"]
+    assert response.status_code == 503
 
 
 @pytest.mark.asyncio
-async def test_reject_request_forbidden(service, repo_mock):
-    repo_mock.get_user_role.return_value = StaffRole.PARTICIPANT
+async def test_invite_accept_and_reject_are_user_scoped(client, auth_as, another_user_id, third_user_id, db_session):
+    project = await create_project(client)
+    project_id = UUID(project["id"])
+    invite_response = await client.post(
+        f"/projects/{project['id']}/invite",
+        params={"target_user_id": str(another_user_id)},
+    )
+    assert invite_response.status_code == 201
 
-    with pytest.raises(HTTPException) as exc:
-        await service.reject_join_request(uuid4(), uuid4(), uuid4())
+    duplicate = await client.post(
+        f"/projects/{project['id']}/invite",
+        params={"target_user_id": str(another_user_id)},
+    )
+    assert duplicate.status_code == 409
 
-    assert exc.value.status_code == 403
+    auth_as(third_user_id)
+    foreign_invite = (await db_session.execute(select(ProjectInvitation))).scalar_one()
+    wrong_user = await client.post(f"/projects/{project['id']}/invite/{foreign_invite.id}/accept")
+    assert wrong_user.status_code == 403
+
+    auth_as(another_user_id)
+    accepted = await client.post(f"/projects/{project['id']}/invite/{foreign_invite.id}/accept")
+    assert accepted.status_code == 200
+
+    member = await db_session.get(Staff, {"project_id": project_id, "user_id": another_user_id})
+    assert member.role == StaffRole.PARTICIPANT.value
+
+    replay = await client.post(f"/projects/{project['id']}/invite/{foreign_invite.id}/accept")
+    assert replay.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_reject_invite_updates_status_and_prevents_accept(client, auth_as, another_user_id, db_session):
+    project = await create_project(client)
+    await client.post(f"/projects/{project['id']}/invite", params={"target_user_id": str(another_user_id)})
+    invite = (await db_session.execute(select(ProjectInvitation))).scalar_one()
+
+    auth_as(another_user_id)
+    rejected = await client.post(f"/projects/{project['id']}/invite/{invite.id}/reject")
+    assert rejected.status_code == 200
+
+    await db_session.refresh(invite)
+    assert invite.status == RequestStatus.REJECTED
+
+    accept_after_reject = await client.post(f"/projects/{project['id']}/invite/{invite.id}/accept")
+    assert accept_after_reject.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_join_request_acceptance_checks_user_and_adds_staff(client, auth_as, another_user_id, db_session):
+    project = await create_project(client)
+    project_id = UUID(project["id"])
+
+    auth_as(another_user_id)
+    request_response = await client.post(f"/projects/{project['id']}/request")
+    assert request_response.status_code == 201
+
+    auth_as()
+    accepted = await client.post(
+        f"/projects/{project['id']}/request/{request_response.json()['request_id']}/accept"
+    )
+    assert accepted.status_code == 200
+
+    member = await db_session.get(Staff, {"project_id": project_id, "user_id": another_user_id})
+    assert member.role == StaffRole.PARTICIPANT.value
+
+
+@pytest.mark.asyncio
+async def test_join_request_for_deleted_user_is_rejected(client, auth_as, users_gateway, another_user_id, db_session):
+    project = await create_project(client)
+
+    auth_as(another_user_id)
+    request_response = await client.post(f"/projects/{project['id']}/request")
+    request_id = request_response.json()["request_id"]
+    users_gateway.existing_users.remove(another_user_id)
+
+    auth_as()
+    accepted = await client.post(f"/projects/{project['id']}/request/{request_id}/accept")
+    assert accepted.status_code == 404
+
+    invitation = await db_session.get(ProjectInvitation, request_id)
+    assert invitation.status == RequestStatus.REJECTED
+
+
+@pytest.mark.asyncio
+async def test_participant_cannot_manage_join_requests(client, auth_as, another_user_id, third_user_id):
+    project = await create_project(client)
+    await client.post(f"/projects/{project['id']}/invite", params={"target_user_id": str(another_user_id)})
+
+    auth_as(another_user_id)
+    invite = (await client.get("/projects/invite/all")).json()[0]
+    await client.post(f"/projects/{project['id']}/invite/{invite['id']}/accept")
+
+    auth_as(third_user_id)
+    request_response = await client.post(f"/projects/{project['id']}/request")
+    request_id = request_response.json()["request_id"]
+
+    auth_as(another_user_id)
+    forbidden = await client.post(f"/projects/{project['id']}/request/{request_id}/accept")
+    assert forbidden.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_user_invites_and_requests_lists_return_only_current_user(client, auth_as, another_user_id, third_user_id):
+    project = await create_project(client)
+    await client.post(f"/projects/{project['id']}/invite", params={"target_user_id": str(another_user_id)})
+
+    auth_as(third_user_id)
+    await client.post(f"/projects/{project['id']}/request")
+    assert (await client.get("/projects/invite/all")).json() == []
+    assert len((await client.get("/projects/request/all")).json()) == 1
+
+    auth_as(another_user_id)
+    invites = (await client.get("/projects/invite/all")).json()
+    requests = (await client.get("/projects/request/all")).json()
+
+    assert len(invites) == 1
+    assert requests == []

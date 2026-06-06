@@ -10,10 +10,10 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-sys.path.insert(0, dirname(dirname(abspath(__file__))))
+sys.path.insert(0, dirname(dirname(dirname(abspath(__file__)))))
 
 from projects_service.src.infrastructure.database import Base
-from projects_service.src.infrastructure.models import Project, Staff, Publication, Subscription, ProjectInvitation, PublicationFile
+from projects_service.src.infrastructure import models as project_models  # noqa: F401
 from projects_service.src.infrastructure.config import settings
 
 

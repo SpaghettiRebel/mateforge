@@ -1,10 +1,11 @@
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from projects_service.src.application.invite_service import InviteService
+from projects_service.src.application.ports import UsersGateway
 from projects_service.src.application.projects_managing_service import ProjectService
 from projects_service.src.infrastructure.config import settings
 from projects_service.src.infrastructure.database import get_async_session
@@ -12,7 +13,7 @@ from projects_service.src.infrastructure.exceptions import TokenExpiredError, To
 from projects_service.src.infrastructure.repositories.project_repository import ProjectRepository
 from projects_service.src.infrastructure.security import decode_access_token
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f'http://{settings.USERS_SERVICE_URL}/auth/login', auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=settings.AUTH_LOGIN_URL, auto_error=False)
 
 
 def get_project_repository(session: AsyncSession = Depends(get_async_session)) -> ProjectRepository:
@@ -51,7 +52,19 @@ def get_project_service(
 ):
     return ProjectService(project_repository)
 
+
+def get_users_gateway(request: Request) -> UsersGateway:
+    gateway = getattr(request.app.state, "users_gateway", None)
+    if gateway is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Auth service gateway is not configured",
+        )
+    return gateway
+
+
 def get_invite_service(
         project_repository: ProjectRepository = Depends(get_project_repository),
+        users_gateway: UsersGateway = Depends(get_users_gateway),
 ):
-    return InviteService(project_repository)
+    return InviteService(project_repository, users_gateway)

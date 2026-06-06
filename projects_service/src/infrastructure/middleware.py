@@ -4,7 +4,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from auth_service.src.infrastructure.config import settings
+from projects_service.src.infrastructure.config import settings
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -25,5 +25,5 @@ def setup_middleware(app: FastAPI) -> None:
         allow_origins=settings.ALLOWED_ORIGINS,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Client-Fingerprint"],
+        allow_headers=["Authorization", "Content-Type"],
     )

@@ -1,27 +1,32 @@
+import logging
 from contextlib import asynccontextmanager
 
-import grpc
 from fastapi import FastAPI
 
-from projects_service.src.infrastructure.generated import users_pb2_grpc
+from projects_service.src.infrastructure.config import settings
+from projects_service.src.infrastructure.database import engine
+from projects_service.src.infrastructure.grpc_client import UsersGrpcClient
+from projects_service.src.infrastructure.middleware import setup_middleware
 from projects_service.src.presentation.routes import router as projects_router
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    channel = grpc.aio.insecure_channel("auth_service:50051")
-
-    client = users_pb2_grpc.UsersExternalStub(channel)
-
-    app.state.grpc_client = client
-    app.state.grpc_channel = channel
-
-    print("Connected to Auth Service via gRPC")
+    client = UsersGrpcClient(
+        host=settings.AUTH_GRPC_HOST,
+        port=settings.AUTH_GRPC_PORT,
+        service_token=settings.GRPC_SERVICE_TOKEN,
+        timeout_seconds=settings.AUTH_GRPC_TIMEOUT_SECONDS,
+    )
+    app.state.users_gateway = client
+    logger.info("Configured Auth Service gRPC client")
 
     yield
 
-    print("Closing gRPC connection...")
-    await channel.close()
+    await client.close()
+    await engine.dispose()
 
 
 app = FastAPI(
@@ -32,6 +37,7 @@ app = FastAPI(
 )
 
 app.include_router(projects_router, prefix="/projects", tags=["Projects"])
+setup_middleware(app)
 
 
 @app.get("/health")

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from enum import IntEnum
 
-from sqlalchemy import ForeignKey, Integer, String, func, select
+from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, func, select
 from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 from auth_service.src.infrastructure.database import Base
@@ -16,6 +16,9 @@ class SkillLevel(IntEnum):
 
 class Subscription(Base):
     __tablename__ = "subscriptions"
+    __table_args__ = (
+        CheckConstraint("subscriber_id <> author_id", name="ck_subscriptions_not_self"),
+    )
 
     subscriber_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True

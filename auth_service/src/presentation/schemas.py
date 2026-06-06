@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class UserAuthBase(BaseModel):
@@ -10,8 +10,18 @@ class UserAuthBase(BaseModel):
 
 
 class UserCreate(UserAuthBase):
-    password: str
-    username: str
+    password: str = Field(min_length=8, max_length=128)
+    username: str = Field(min_length=3, max_length=50, pattern=r"^[A-Za-z0-9_.-]+$")
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: EmailStr) -> str:
+        return str(value).strip().lower()
+
+    @field_validator("username")
+    @classmethod
+    def normalize_username(cls, value: str) -> str:
+        return value.strip()
 
     @field_validator('password')
     @classmethod
@@ -48,3 +58,15 @@ class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str = Field(min_length=32, max_length=512)
+
+
+class LogoutRequest(RefreshTokenRequest):
+    pass
+
+
+class UserBioUpdate(BaseModel):
+    bio: str = Field(max_length=1000)

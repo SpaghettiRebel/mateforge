@@ -6,3 +6,7 @@ class TokenExpiredError(TokenError):
 
 class TokenInvalidError(TokenError):
     pass
+
+
+class ExternalServiceUnavailable(Exception):
+    pass

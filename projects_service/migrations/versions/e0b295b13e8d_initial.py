@@ -1,7 +1,7 @@
 """initial
 
 Revision ID: e0b295b13e8d
-Revises: 
+Revises:
 Create Date: 2026-02-27 20:33:27.683024
 
 """

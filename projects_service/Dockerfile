@@ -15,6 +15,7 @@ RUN python -m grpc_tools.protoc \
 FROM python:3.12-slim
 
 WORKDIR /app
+RUN adduser --disabled-password --gecos "" appuser
 
 COPY projects_service/requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
@@ -26,6 +27,9 @@ COPY projects_service/ /app/projects_service/
 
 ENV PYTHONPATH=/app
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+USER appuser
 
 EXPOSE 8001
 

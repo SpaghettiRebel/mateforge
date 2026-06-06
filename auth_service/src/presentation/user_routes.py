@@ -1,11 +1,11 @@
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Depends, Query
 
 from auth_service.src.application.user_service import UserService
 from auth_service.src.presentation.dependencies import get_current_user, get_service
-from auth_service.src.presentation.schemas import UserData, UserRead
+from auth_service.src.presentation.schemas import UserBioUpdate, UserData, UserRead
 
 router = APIRouter()
 
@@ -25,11 +25,11 @@ async def delete_current_user_account(
 
 @router.patch("/me", response_model=UserData)
 async def edit_current_user(
-        bio: str = Body(embed=True),
+        payload: UserBioUpdate,
         current_user: UserData = Depends(get_current_user),
         user_service: UserService = Depends(get_service('user')),
 ):
-    return await user_service.edit_user(current_user.id, bio)
+    return await user_service.edit_user(current_user.id, payload.bio)
 
 
 @router.get("/{user_id}", response_model=UserRead)
@@ -50,8 +50,8 @@ async def follow_user(
 @router.get("/{user_id}/followers", response_model=List[UserRead])
 async def get_user_followers(
     user_id: UUID,
-    page: int = 1,
-    limit: int = 20,
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
     user_service: UserService = Depends(get_service('user'))
 ):
     return await user_service.get_followers(user_id, page, limit)
@@ -59,8 +59,8 @@ async def get_user_followers(
 @router.get("/{user_id}/following", response_model=List[UserRead])
 async def get_user_following(
     user_id: UUID,
-    page: int = 1,
-    limit: int = 20,
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
     user_service: UserService = Depends(get_service('user'))
 ):
     return await user_service.get_following(user_id, page, limit)

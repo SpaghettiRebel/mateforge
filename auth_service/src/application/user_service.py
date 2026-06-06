@@ -40,7 +40,7 @@ class UserService:
         await self.token_repository.delete_all_user_tokens(str(user_id))
         await self.user_repository.delete(user_id)
 
-        await self.user_repository.session.commit()
+        await self.user_repository.commit()
 
         return {"msg": "Account deleted"}
 
@@ -48,8 +48,8 @@ class UserService:
         try:
             user = await self.user_repository.update_bio(user_id, bio)
 
-            await self.user_repository.session.commit()
-            await self.user_repository.session.refresh(user)
+            await self.user_repository.commit()
+            await self.user_repository.refresh(user)
 
             return UserData.model_validate(user)
         except UserDoesNotExist:
@@ -63,10 +63,11 @@ class UserService:
         try:
             await self.user_repository.follow(user_id=user_id, follower_id=follower_id)
         except IntegrityError:
+            await self.user_repository.rollback()
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail="Error due to follow") from None
 
-        await self.user_repository.session.commit()
+        await self.user_repository.commit()
 
         return {"msg": "Subscribed successfully"}
 

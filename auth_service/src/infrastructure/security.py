@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from jose import jwt
 from passlib.context import CryptContext
@@ -18,18 +18,26 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_token(user_id: UUID, token_type: str) -> str:
+def create_token(user_id: UUID | str, token_type: str) -> str:
+    now = datetime.now(timezone.utc)
     data = {
         'sub': str(user_id),
         'type': token_type,
+        'iss': settings.JWT_ISSUER,
+        'aud': settings.JWT_AUDIENCE,
+        'iat': now,
+        'nbf': now,
+        'jti': str(uuid4()),
     }
 
     to_encode = data.copy()
 
     if token_type == 'verification':
-        expire = datetime.now(timezone.utc) + timedelta(hours=settings.VERIFY_ACCESS_TOKEN_EXPIRE_HOURS)
+        expire = now + timedelta(hours=settings.VERIFY_ACCESS_TOKEN_EXPIRE_HOURS)
+    elif token_type == 'auth':
+        expire = now + timedelta(minutes=settings.AUTH_ACCESS_TOKEN_EXPIRE_MINUTES)
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.AUTH_ACCESS_TOKEN_EXPIRE_MINUTES)
+        raise ValueError(f"Unsupported token type: {token_type}")
 
     to_encode.update({'exp': expire})
     encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
@@ -37,9 +45,15 @@ def create_token(user_id: UUID, token_type: str) -> str:
     return encoded_jwt
 
 
-def decode_access_token(token: str, token_type: str) -> UUID | None:
+def decode_access_token(token: str, token_type: str) -> UUID:
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        payload = jwt.decode(
+            token,
+            settings.JWT_SECRET,
+            algorithms=[settings.JWT_ALGORITHM],
+            audience=settings.JWT_AUDIENCE,
+            issuer=settings.JWT_ISSUER,
+        )
         if payload.get("type") != token_type:
             raise TokenInvalidError("Invalid token type")
 

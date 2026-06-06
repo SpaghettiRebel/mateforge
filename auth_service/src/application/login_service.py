@@ -1,8 +1,10 @@
 import json
 import logging
-from uuid import UUID, uuid4
+import secrets
+from uuid import UUID
 
 from fastapi import BackgroundTasks, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 
 from auth_service.src.infrastructure.config import settings
 from auth_service.src.infrastructure.email import send_verification_email
@@ -17,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 
 class AuthService:
+    LOGIN_ATTEMPT_LIMIT = 5
+    LOGIN_ATTEMPT_WINDOW_SECONDS = 300
+
     def __init__(
             self,
             user_repository: UserRepository,
@@ -44,9 +49,16 @@ class AuthService:
                                                     hashed_password=hashed_password,
                                                     is_verified=False)
 
-        await self.user_repository.add(user=user)
-        await self.user_repository.session.commit()
-        await self.user_repository.session.refresh(user)
+        try:
+            await self.user_repository.add(user=user)
+            await self.user_repository.commit()
+            await self.user_repository.refresh(user)
+        except IntegrityError:
+            await self.user_repository.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email or username already exists",
+            ) from None
 
         verification_token = create_token(user_id=user.id, token_type='verification')
         background_tasks.add_task(send_verification_email, user.email, verification_token)
@@ -54,20 +66,17 @@ class AuthService:
         return UserRead.model_validate(user)
 
     async def authenticate_user(self, email: str, password: str, fingerprint: str | None) -> dict:
+        email = email.strip().lower()
         limiter_key = f"login:{email}"
-        await self.rate_limiter.check_limit(key=limiter_key, limit=5)
+        await self.rate_limiter.check_limit(key=limiter_key, limit=self.LOGIN_ATTEMPT_LIMIT)
 
         user = await self.user_repository.get_by_email(email)
         if not user:
-            await self.rate_limiter.increment(key=limiter_key, window_seconds=300)
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                                detail="Invalid email or password")
+            await self._raise_invalid_credentials(limiter_key)
 
         is_password_correct = verify_password(password, user.hashed_password)
         if not is_password_correct:
-            await self.rate_limiter.increment(key=limiter_key, window_seconds=300)
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                                detail="Invalid email or password")
+            await self._raise_invalid_credentials(limiter_key)
 
         if not user.is_verified:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
@@ -76,7 +85,7 @@ class AuthService:
         await self.rate_limiter.reset(key=limiter_key)
 
         access_token = create_token(user_id=user.id, token_type='auth')
-        refresh_token = str(uuid4())
+        refresh_token = secrets.token_urlsafe(48)
 
         session_data = json.dumps({
             "user_id": str(user.id),
@@ -84,8 +93,8 @@ class AuthService:
         })
         ttl = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
 
-        await self.token_repository.save_token(user.id, refresh_token, session_data, ttl)
-        logger.info(f"Successfully saved refresh token for user {user.id}. TTL: {ttl}s")
+        await self.token_repository.save_token(str(user.id), refresh_token, session_data, ttl)
+        logger.info("Saved refresh session for user %s", user.id)
 
         return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
@@ -105,16 +114,25 @@ class AuthService:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                 detail="Wrong device")
 
-        await self.token_repository.delete_token(user_id, refresh_token)
-
         new_access_token = create_token(user_id=user_id, token_type='auth')
-        new_refresh_token = str(uuid4())
+        new_refresh_token = secrets.token_urlsafe(48)
 
         data['fingerprint'] = fingerprint or "unknown"
         ttl = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
 
-        await self.token_repository.save_token(user_id, new_refresh_token, json.dumps(data), ttl)
-        logger.info(f"Successfully saved refresh token for user {data['user_id']}. TTL: {ttl}s")
+        rotated = await self.token_repository.rotate_token(
+            user_id=user_id,
+            old_refresh_token=refresh_token,
+            new_refresh_token=new_refresh_token,
+            data=json.dumps(data),
+            ttl=ttl,
+        )
+        if not rotated:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired refresh token",
+            )
+        logger.info("Rotated refresh session for user %s", user_id)
 
         return Token(access_token=new_access_token, refresh_token=new_refresh_token, token_type="bearer")
 
@@ -139,7 +157,7 @@ class AuthService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                 detail="User not found") from None
 
-        await self.user_repository.session.commit()
+        await self.user_repository.commit()
 
         return {"msg": "Email successfully verified"}
 
@@ -167,3 +185,18 @@ class AuthService:
         await self.token_repository.delete_all_user_tokens(str(user_id))
 
         return {"msg": "Logged out from all devices"}
+
+    async def _raise_invalid_credentials(self, limiter_key: str) -> None:
+        count, ttl = await self.rate_limiter.increment(
+            key=limiter_key,
+            window_seconds=self.LOGIN_ATTEMPT_WINDOW_SECONDS,
+        )
+        if count >= self.LOGIN_ATTEMPT_LIMIT:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Too many attempts. Try again in {ttl} seconds.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+        )

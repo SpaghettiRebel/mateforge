@@ -22,7 +22,7 @@ class UserRepository:
                       is_verified=is_verified)
 
     async def get_by_id(self, user_id: UUID) -> UserDB:
-        query = select(UserDB).where(UserDB.id == user_id)
+        query = select(UserDB).where(UserDB.id == user_id).execution_options(populate_existing=True)
         result = await self.session.execute(query)
         user = result.scalar_one_or_none()
         if not user:
@@ -44,6 +44,15 @@ class UserRepository:
         self.session.add(user)
         await self.session.flush()
         return user
+
+    async def commit(self) -> None:
+        await self.session.commit()
+
+    async def rollback(self) -> None:
+        await self.session.rollback()
+
+    async def refresh(self, user: UserDB) -> None:
+        await self.session.refresh(user)
 
     async def delete(self, user_id: UUID) -> None:
         query = delete(UserDB).where(UserDB.id == user_id)
@@ -81,6 +90,7 @@ class UserRepository:
             select(UserDB)
             .join(Subscription, UserDB.id == Subscription.subscriber_id)
             .where(Subscription.author_id == user_id)
+            .order_by(UserDB.created_at.desc(), UserDB.id)
             .limit(limit)
             .offset(offset)
         )
@@ -92,9 +102,9 @@ class UserRepository:
             select(UserDB)
             .join(Subscription, UserDB.id == Subscription.author_id)
             .where(Subscription.subscriber_id == user_id)
+            .order_by(UserDB.created_at.desc(), UserDB.id)
             .limit(limit)
             .offset(offset)
         )
         result = await self.session.execute(stmt)
         return result.scalars().all()
-

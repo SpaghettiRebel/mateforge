@@ -1,9 +1,17 @@
+import hmac
+import logging
+from uuid import UUID
+
 import grpc
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
+from auth_service.src.infrastructure.config import settings
 from auth_service.src.infrastructure.database import async_session_factory
 from auth_service.src.infrastructure.generated import users_pb2, users_pb2_grpc
 from auth_service.src.infrastructure.models import UserDB
+
+logger = logging.getLogger(__name__)
 
 
 class UsersServicer(users_pb2_grpc.UsersExternalServicer):
@@ -12,8 +20,15 @@ class UsersServicer(users_pb2_grpc.UsersExternalServicer):
             request: users_pb2.UserRequest,
             context: grpc.aio.ServicerContext
     ) -> users_pb2.ExistenceResponse:
+        metadata = dict(context.invocation_metadata())
+        provided_token = metadata.get("x-service-token", "")
+        if not hmac.compare_digest(provided_token, settings.GRPC_SERVICE_TOKEN):
+            await context.abort(grpc.StatusCode.UNAUTHENTICATED, "Service authentication failed")
 
-        user_id = request.user_id
+        try:
+            user_id = UUID(request.user_id)
+        except ValueError:
+            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Invalid user id")
 
         async with async_session_factory() as session:
             try:
@@ -26,8 +41,6 @@ class UsersServicer(users_pb2_grpc.UsersExternalServicer):
 
                 return users_pb2.ExistenceResponse(exists=False)
 
-            except Exception as e:
-                print(f"gRPC Error: {e}")
-                context.set_code(grpc.StatusCode.INTERNAL)
-                context.set_details(f"Database error: {str(e)}")
-                return users_pb2.ExistenceResponse(exists=False)
+            except SQLAlchemyError:
+                logger.exception("Database failure while checking user existence")
+                await context.abort(grpc.StatusCode.INTERNAL, "Internal service error")
