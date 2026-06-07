@@ -3,9 +3,10 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from auth_service.src.infrastructure.exceptions import UserDoesNotExist
-from auth_service.src.infrastructure.models import Subscription, UserDB
+from auth_service.src.infrastructure.models import Subscription, UserDB, UserSkill
 from auth_service.src.presentation.schemas import UserCreate
 
 
@@ -22,13 +23,24 @@ class UserRepository:
                       is_verified=is_verified)
 
     async def get_by_id(self, user_id: UUID) -> UserDB:
-        query = select(UserDB).where(UserDB.id == user_id).execution_options(populate_existing=True)
+        query = (
+            select(UserDB)
+            .options(selectinload(UserDB.skill_links).selectinload(UserSkill.skill))
+            .where(UserDB.id == user_id)
+            .execution_options(populate_existing=True)
+        )
         result = await self.session.execute(query)
         user = result.scalar_one_or_none()
         if not user:
             raise UserDoesNotExist
 
         return user
+
+    async def exists(self, user_id: UUID) -> bool:
+        result = await self.session.execute(
+            select(UserDB.id).where(UserDB.id == user_id).limit(1)
+        )
+        return result.scalar_one_or_none() is not None
 
     async def get_by_email(self, email: str) -> UserDB | None:
         query = select(UserDB).where(UserDB.email == email)
@@ -88,6 +100,7 @@ class UserRepository:
     async def get_followers(self, user_id: UUID, limit: int, offset: int) -> List[UserDB]:
         stmt = (
             select(UserDB)
+            .options(selectinload(UserDB.skill_links).selectinload(UserSkill.skill))
             .join(Subscription, UserDB.id == Subscription.subscriber_id)
             .where(Subscription.author_id == user_id)
             .order_by(UserDB.created_at.desc(), UserDB.id)
@@ -100,6 +113,7 @@ class UserRepository:
     async def get_following(self, user_id: UUID, limit: int, offset: int) -> List[UserDB]:
         stmt = (
             select(UserDB)
+            .options(selectinload(UserDB.skill_links).selectinload(UserSkill.skill))
             .join(Subscription, UserDB.id == Subscription.author_id)
             .where(Subscription.subscriber_id == user_id)
             .order_by(UserDB.created_at.desc(), UserDB.id)

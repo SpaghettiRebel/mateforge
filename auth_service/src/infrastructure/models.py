@@ -30,11 +30,26 @@ class Subscription(Base):
 
 class UserSkill(Base):
     __tablename__ = "user_skills"
+    __table_args__ = (
+        CheckConstraint("level BETWEEN 1 AND 4", name="ck_user_skills_level"),
+    )
 
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    skill_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("skills.id", ondelete="CASCADE"), primary_key=True)
+    skill_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("skills.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
 
-    level: Mapped[SkillLevel] = mapped_column(Integer, default=SkillLevel.BEGINNER)
+    level: Mapped[int] = mapped_column(
+        Integer,
+        default=SkillLevel.BEGINNER,
+        server_default=str(SkillLevel.BEGINNER.value),
+        nullable=False,
+    )
+
+    user: Mapped["UserDB"] = relationship(back_populates="skill_links")
+    skill: Mapped["Skill"] = relationship(back_populates="user_links")
 
 class Skill(Base):
     __tablename__ = "skills"
@@ -45,8 +60,9 @@ class Skill(Base):
 
     group: Mapped[str] = mapped_column(String(30), default="hard-skill", index=True)
 
-    users: Mapped[list["UserDB"]] = relationship(
-        secondary="user_skills", back_populates="skills", viewonly=True
+    user_links: Mapped[list["UserSkill"]] = relationship(
+        back_populates="skill",
+        passive_deletes=True,
     )
 
 class UserDB(Base):
@@ -90,8 +106,8 @@ class UserDB(Base):
         .scalar_subquery()
     )
 
-    skills: Mapped[list["Skill"]] = relationship(
-        secondary="user_skills",
-        back_populates="users",
-        viewonly=True
+    skill_links: Mapped[list["UserSkill"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="UserSkill.skill_id",
     )

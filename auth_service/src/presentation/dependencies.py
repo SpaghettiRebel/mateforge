@@ -6,11 +6,13 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_service.src.application.login_service import AuthService
+from auth_service.src.application.skill_service import SkillService
 from auth_service.src.application.user_service import AccessType, UserService
 from auth_service.src.infrastructure.database import get_async_session
 from auth_service.src.infrastructure.exceptions import TokenExpiredError, TokenInvalidError
 from auth_service.src.infrastructure.redis import get_redis_client
 from auth_service.src.infrastructure.repositories.rate_limiter import RateLimiter
+from auth_service.src.infrastructure.repositories.skill_repository import SkillRepository
 from auth_service.src.infrastructure.repositories.token_repository import TokenRepository
 from auth_service.src.infrastructure.repositories.user_repository import UserRepository
 from auth_service.src.infrastructure.security import decode_access_token
@@ -24,6 +26,10 @@ async def get_rate_limiter(redis: Redis = Depends(get_redis_client)) -> RateLimi
 
 def get_user_repository(session: AsyncSession = Depends(get_async_session)) -> UserRepository:
     return UserRepository(session)
+
+
+def get_skill_repository(session: AsyncSession = Depends(get_async_session)) -> SkillRepository:
+    return SkillRepository(session)
 
 
 async def get_token_repository(redis: Redis = Depends(get_redis_client)) -> TokenRepository:
@@ -45,6 +51,13 @@ def get_service(service_type: str):
             raise ValueError(f"Unknown service type: {service_type}")
 
     return service_dependency
+
+
+def get_skill_service(
+    skill_repository: SkillRepository = Depends(get_skill_repository),
+    user_repository: UserRepository = Depends(get_user_repository),
+) -> SkillService:
+    return SkillService(skill_repository, user_repository)
 
 
 async def get_current_user(
@@ -72,6 +85,4 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         ) from None
 
-    user = await user_service.get_user(user_id, access_type=AccessType.PRIVATE)
-
-    return UserData.model_validate(user)
+    return await user_service.get_user(user_id, access_type=AccessType.PRIVATE)

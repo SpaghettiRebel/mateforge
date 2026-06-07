@@ -98,8 +98,8 @@ async def test_user_service_get_edit_delete_and_pagination_paths():
     assert not hasattr(public_user, "email")
     assert private_user.email == "unit@test.com"
     assert edited.bio == "Updated bio"
-    assert followers[0] is user
-    assert following[0] is user
+    assert followers[0].username == "unit"
+    assert following[0].username == "unit"
     assert user_repository.followers_args == (user_id, 10, 20)
     assert user_repository.following_args == (user_id, 5, 5)
     assert deleted == {"msg": "Account deleted"}

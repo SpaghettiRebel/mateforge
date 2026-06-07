@@ -14,6 +14,7 @@ from auth_service.src.infrastructure.repositories.token_repository import TokenR
 from auth_service.src.infrastructure.repositories.user_repository import UserRepository
 from auth_service.src.infrastructure.security import create_token, decode_access_token, hash_password, verify_password
 from auth_service.src.presentation.schemas import Token, UserCreate, UserRead
+from auth_service.src.presentation.serializers import to_user_read
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ class AuthService:
         verification_token = create_token(user_id=user.id, token_type='verification')
         background_tasks.add_task(send_verification_email, user.email, verification_token)
 
-        return UserRead.model_validate(user)
+        return to_user_read(user)
 
     async def authenticate_user(self, email: str, password: str, fingerprint: str | None) -> dict:
         email = email.strip().lower()

@@ -9,6 +9,7 @@ from auth_service.src.infrastructure.exceptions import UserDoesNotExist
 from auth_service.src.infrastructure.repositories.token_repository import TokenRepository
 from auth_service.src.infrastructure.repositories.user_repository import UserRepository
 from auth_service.src.presentation.schemas import UserData, UserRead
+from auth_service.src.presentation.serializers import to_user_data, to_user_read
 
 
 class AccessType(Enum):
@@ -32,9 +33,9 @@ class UserService:
                                 detail="User not found") from None
 
         if access_type == AccessType.PRIVATE:
-            return UserData.model_validate(user)
+            return to_user_data(user)
 
-        return UserRead.model_validate(user)
+        return to_user_read(user)
 
     async def delete_user(self, user_id: UUID) -> dict:
         await self.token_repository.delete_all_user_tokens(str(user_id))
@@ -46,12 +47,12 @@ class UserService:
 
     async def edit_user(self, user_id: UUID, bio: str) -> UserData:
         try:
-            user = await self.user_repository.update_bio(user_id, bio)
+            await self.user_repository.update_bio(user_id, bio)
 
             await self.user_repository.commit()
-            await self.user_repository.refresh(user)
+            user = await self.user_repository.get_by_id(user_id)
 
-            return UserData.model_validate(user)
+            return to_user_data(user)
         except UserDoesNotExist:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                 detail="User not found") from None
@@ -74,10 +75,12 @@ class UserService:
     async def get_followers(self, user_id: UUID, page: int, limit: int) -> List[UserRead]:
         offset = (page - 1) * limit
 
-        return await self.user_repository.get_followers(user_id, limit, offset)
+        users = await self.user_repository.get_followers(user_id, limit, offset)
+        return [to_user_read(user) for user in users]
 
 
     async def get_following(self, user_id: UUID, page: int, limit: int) -> List[UserRead]:
         offset = (page - 1) * limit
 
-        return await self.user_repository.get_following(user_id, limit, offset)
+        users = await self.user_repository.get_following(user_id, limit, offset)
+        return [to_user_read(user) for user in users]

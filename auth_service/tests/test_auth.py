@@ -20,6 +20,12 @@ async def test_auth_migrations_create_expected_schema(db_session):
             "subscriptions_checks": {
                 item["name"] for item in inspector.get_check_constraints("subscriptions")
             },
+            "user_skills_checks": {
+                item["name"] for item in inspector.get_check_constraints("user_skills")
+            },
+            "user_skills_indexes": {
+                item["name"] for item in inspector.get_indexes("user_skills")
+            },
         }
 
     connection = await db_session.connection()
@@ -27,6 +33,8 @@ async def test_auth_migrations_create_expected_schema(db_session):
 
     assert {"users", "subscriptions", "skills", "user_skills", "alembic_version"} <= schema["tables"]
     assert "ck_subscriptions_not_self" in schema["subscriptions_checks"]
+    assert "ck_user_skills_level" in schema["user_skills_checks"]
+    assert "ix_user_skills_skill_id" in schema["user_skills_indexes"]
 
 
 @pytest.mark.asyncio

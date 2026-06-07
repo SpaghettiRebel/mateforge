@@ -59,7 +59,12 @@ async def prepare_database():
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     connection = await engine.connect()
     transaction = await connection.begin()
-    session_factory = async_sessionmaker(bind=connection, class_=AsyncSession, expire_on_commit=False)
+    session_factory = async_sessionmaker(
+        bind=connection,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        join_transaction_mode="create_savepoint",
+    )
 
     async with session_factory() as session:
         yield session
@@ -85,7 +90,19 @@ async def redis_client(redis_client_session: Redis) -> AsyncGenerator[Redis, Non
 
 @pytest_asyncio.fixture
 async def client(db_session: AsyncSession, redis_client: Redis) -> AsyncGenerator[AsyncClient, None]:
-    app.dependency_overrides[get_async_session] = lambda: db_session
+    connection = await db_session.connection()
+    request_session_factory = async_sessionmaker(
+        bind=connection,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        join_transaction_mode="create_savepoint",
+    )
+
+    async def override_session() -> AsyncGenerator[AsyncSession, None]:
+        async with request_session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_async_session] = override_session
     app.dependency_overrides[get_redis_client] = lambda: redis_client
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:

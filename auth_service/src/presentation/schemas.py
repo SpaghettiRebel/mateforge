@@ -1,8 +1,11 @@
 import re
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+
+from auth_service.src.infrastructure.models import SkillLevel
 
 
 class UserAuthBase(BaseModel):
@@ -41,14 +44,71 @@ class UserLogin(UserAuthBase):
     password: str
 
 
+class SkillRead(BaseModel):
+    id: UUID
+    name: str
+    slug: str
+    group: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SkillCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+    slug: str = Field(min_length=1, max_length=50, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    group: str = Field(default="hard-skill", min_length=1, max_length=30, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def normalize_name(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        return " ".join(value.split())
+
+    @field_validator("slug", "group", mode="before")
+    @classmethod
+    def normalize_slug_fields(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        return value.strip().lower()
+
+
+class UserSkillRead(BaseModel):
+    skill: SkillRead
+    level: SkillLevel
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserSkillInput(BaseModel):
+    skill_id: UUID
+    level: SkillLevel = SkillLevel.BEGINNER
+
+
+class UserSkillsReplace(BaseModel):
+    skills: list[UserSkillInput] = Field(default_factory=list, max_length=50)
+
+    @model_validator(mode="after")
+    def validate_unique_skills(self):
+        skill_ids = [item.skill_id for item in self.skills]
+        if len(skill_ids) != len(set(skill_ids)):
+            raise ValueError("Duplicate skill_id values are not allowed")
+        return self
+
+
+class UserSkillLevelUpdate(BaseModel):
+    level: SkillLevel
+
+
 class UserRead(BaseModel):
     id: UUID
     username: str
     bio: str | None = None
     followers_count: int
     following_count: int
+    skills: list[UserSkillRead] = Field(default_factory=list, validation_alias="skill_links")
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 class UserData(UserRead, UserAuthBase):
     created_at: datetime
